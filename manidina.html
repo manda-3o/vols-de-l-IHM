@@ -1,0 +1,2680 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MANIDINA — Réservation de Billets d'Avion</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #081120;
+    --bg2: #0d1a2e;
+    --bg3: #102040;
+    --primary: #3BA4FF;
+    --primary-glow: rgba(59,164,255,0.18);
+    --gold: #D6B25E;
+    --gold-glow: rgba(214,178,94,0.15);
+    --success: #10B981;
+    --error: #EF4444;
+    --text: #e8f0fe;
+    --text-muted: #7a9abf;
+    --border: rgba(59,164,255,0.12);
+    --card: rgba(16,32,60,0.85);
+    --radius: 16px;
+    --radius-sm: 8px;
+    --transition: 0.28s cubic-bezier(.4,0,.2,1);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── BACKGROUND ATMOSPHERE ─── */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -40%;
+    right: -20%;
+    width: 700px;
+    height: 700px;
+    background: radial-gradient(ellipse, rgba(59,164,255,0.07) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: -20%;
+    left: -10%;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(ellipse, rgba(214,178,94,0.05) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ─── NAVBAR ─── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 1000;
+    backdrop-filter: blur(20px);
+    background: rgba(8,17,32,0.85);
+    border-bottom: 1px solid var(--border);
+    padding: 0 40px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.6rem;
+    letter-spacing: 0.06em;
+    background: linear-gradient(135deg, var(--primary), var(--gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    cursor: pointer;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 32px;
+    list-style: none;
+  }
+  .nav-links a {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    transition: color var(--transition);
+    cursor: pointer;
+  }
+  .nav-links a:hover, .nav-links a.active { color: var(--primary); }
+
+  .nav-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .btn {
+    padding: 9px 22px;
+    border-radius: 50px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition);
+    border: none;
+    outline: none;
+  }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { border-color: var(--primary); color: var(--primary); }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--primary), #1a7de0);
+    color: #fff;
+    box-shadow: 0 0 24px rgba(59,164,255,0.28);
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 32px rgba(59,164,255,0.4); }
+  .btn-gold {
+    background: linear-gradient(135deg, var(--gold), #b8932e);
+    color: #1a1000;
+    font-weight: 600;
+    box-shadow: 0 0 20px rgba(214,178,94,0.3);
+  }
+  .btn-gold:hover { transform: translateY(-1px); box-shadow: 0 4px 28px rgba(214,178,94,0.45); }
+  .btn-success {
+    background: var(--success);
+    color: #fff;
+    font-weight: 600;
+  }
+
+  /* ─── PAGES ─── */
+  .page { display: none; padding-top: 64px; min-height: 100vh; position: relative; z-index: 1; }
+  .page.active { display: block; }
+
+  /* ─── HERO ─── */
+  .hero {
+    min-height: calc(100vh - 64px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 40px 40px;
+    text-align: center;
+    position: relative;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(59,164,255,0.08);
+    border: 1px solid rgba(59,164,255,0.2);
+    border-radius: 50px;
+    padding: 6px 16px;
+    font-size: 0.8rem;
+    color: var(--primary);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 28px;
+    animation: fadeDown 0.7s ease both;
+  }
+
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2.8rem, 6vw, 5.5rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    margin-bottom: 20px;
+    animation: fadeDown 0.8s ease 0.1s both;
+  }
+
+  .hero h1 .accent { color: var(--primary); }
+  .hero h1 .gold { color: var(--gold); }
+
+  .hero-sub {
+    font-size: 1.1rem;
+    color: var(--text-muted);
+    max-width: 540px;
+    line-height: 1.7;
+    margin-bottom: 50px;
+    font-weight: 300;
+    animation: fadeDown 0.8s ease 0.2s both;
+  }
+
+  /* ─── SEARCH BOX ─── */
+  .search-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 32px;
+    width: 100%;
+    max-width: 900px;
+    backdrop-filter: blur(24px);
+    animation: fadeUp 0.9s ease 0.3s both;
+    box-shadow: 0 8px 60px rgba(0,0,0,0.4);
+  }
+
+  .search-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 28px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 50px;
+    padding: 4px;
+    width: fit-content;
+  }
+  .search-tab {
+    padding: 8px 20px;
+    border-radius: 50px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all var(--transition);
+    border: none;
+    background: transparent;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .search-tab.active {
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 0 16px rgba(59,164,255,0.3);
+  }
+
+  .search-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr auto;
+    gap: 12px;
+    align-items: end;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .form-group label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  .form-group input,
+  .form-group select {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    transition: all var(--transition);
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  .form-group input:focus,
+  .form-group select:focus {
+    border-color: var(--primary);
+    background: rgba(59,164,255,0.06);
+    box-shadow: 0 0 0 3px rgba(59,164,255,0.1);
+  }
+  .form-group input::placeholder { color: var(--text-muted); }
+
+  .search-btn-lg {
+    padding: 13px 32px;
+    font-size: 1rem;
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+  }
+
+  /* ─── STATS ROW ─── */
+  .stats-row {
+    display: flex;
+    gap: 48px;
+    margin-top: 48px;
+    animation: fadeUp 0.9s ease 0.5s both;
+  }
+  .stat { text-align: center; }
+  .stat-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .stat-label { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+
+  /* ─── FLIGHTS RESULTS PAGE ─── */
+  .page-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 24px;
+  }
+
+  .page-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .page-subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 32px; }
+
+  .results-layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 24px;
+  }
+
+  /* Filter Sidebar */
+  .filter-sidebar {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    height: fit-content;
+    position: sticky;
+    top: 80px;
+  }
+
+  .filter-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .filter-section { margin-bottom: 24px; }
+  .filter-section-title {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-bottom: 14px;
+  }
+
+  .filter-range {
+    width: 100%;
+    accent-color: var(--primary);
+    cursor: pointer;
+  }
+
+  .filter-range-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 6px;
+  }
+
+  .checkbox-group { display: flex; flex-direction: column; gap: 10px; }
+  .checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    transition: color var(--transition);
+  }
+  .checkbox-item:hover { color: var(--text); }
+  .checkbox-item input[type="checkbox"] { accent-color: var(--primary); width: 15px; height: 15px; cursor: pointer; }
+
+  /* Sort bar */
+  .sort-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .sort-chip {
+    padding: 7px 16px;
+    border-radius: 50px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-family: 'DM Sans', sans-serif;
+    transition: all var(--transition);
+  }
+  .sort-chip.active, .sort-chip:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: rgba(59,164,255,0.07);
+  }
+
+  /* Flight Card */
+  .flight-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 14px;
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 24px;
+    cursor: pointer;
+    transition: all var(--transition);
+    position: relative;
+    overflow: hidden;
+  }
+  .flight-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--primary);
+    opacity: 0;
+    transition: opacity var(--transition);
+  }
+  .flight-card:hover {
+    border-color: rgba(59,164,255,0.3);
+    transform: translateX(2px);
+    box-shadow: 0 4px 32px rgba(0,0,0,0.3);
+  }
+  .flight-card:hover::before { opacity: 1; }
+  .flight-card.premium { border-color: rgba(214,178,94,0.2); }
+  .flight-card.premium::before { background: var(--gold); }
+
+  .airline-logo {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 0.75rem;
+    color: var(--primary);
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+  }
+
+  .flight-route {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .route-time {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+  }
+  .route-code { font-size: 0.75rem; color: var(--text-muted); margin-top: 3px; }
+  .route-line {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 100px;
+  }
+  .route-duration { font-size: 0.75rem; color: var(--text-muted); }
+  .route-bar {
+    width: 100%;
+    height: 1px;
+    background: var(--border);
+    position: relative;
+  }
+  .route-bar::before, .route-bar::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--primary);
+  }
+  .route-bar::before { left: 0; }
+  .route-bar::after { right: 0; }
+  .route-stops {
+    font-size: 0.72rem;
+    color: var(--success);
+    font-weight: 500;
+  }
+  .route-stops.has-stop { color: var(--gold); }
+
+  .flight-info { text-align: right; }
+  .flight-class {
+    display: inline-block;
+    font-size: 0.72rem;
+    padding: 3px 10px;
+    border-radius: 50px;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  .flight-class.business { border-color: var(--gold); color: var(--gold); }
+  .seats-left { font-size: 0.78rem; color: var(--error); margin-top: 4px; }
+
+  .flight-price { text-align: right; }
+  .price-amount {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .price-per { font-size: 0.75rem; color: var(--text-muted); }
+  .select-btn {
+    margin-top: 10px;
+    padding: 9px 20px;
+    font-size: 0.85rem;
+  }
+
+  /* ─── SEAT SELECTION ─── */
+  .seat-layout {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+    margin-bottom: 24px;
+  }
+
+  .aircraft-cabin {
+    max-width: 400px;
+    margin: 0 auto;
+  }
+
+  .cabin-nose {
+    width: 100%;
+    height: 50px;
+    background: linear-gradient(to bottom, rgba(59,164,255,0.15), transparent);
+    border-radius: 60% 60% 0 0;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    color: var(--primary);
+    font-weight: 500;
+  }
+
+  .seat-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    justify-content: center;
+  }
+
+  .seat-row-num {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    width: 22px;
+    text-align: center;
+  }
+
+  .seat {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px 8px 4px 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition);
+    border: 1.5px solid transparent;
+    position: relative;
+  }
+  .seat:hover:not(.occupied) { transform: scale(1.12); z-index: 2; }
+
+  .seat.available { background: rgba(59,164,255,0.15); border-color: rgba(59,164,255,0.4); color: var(--primary); }
+  .seat.available:hover { background: rgba(59,164,255,0.3); }
+  .seat.occupied { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); color: rgba(239,68,68,0.5); cursor: not-allowed; }
+  .seat.premium { background: rgba(214,178,94,0.12); border-color: rgba(214,178,94,0.4); color: var(--gold); }
+  .seat.premium:hover { background: rgba(214,178,94,0.25); }
+  .seat.selected { background: var(--success); border-color: var(--success); color: #fff; box-shadow: 0 0 12px rgba(16,185,129,0.4); }
+
+  .seat-aisle { width: 20px; }
+
+  .seat-legend {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin-top: 20px;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+  .legend-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+  }
+
+  /* ─── BOOKING STEPS ─── */
+  .steps-nav {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 40px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 50px;
+    padding: 6px;
+    width: fit-content;
+  }
+
+  .step-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 22px;
+    border-radius: 50px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    transition: all var(--transition);
+    white-space: nowrap;
+  }
+  .step-item.active {
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 0 20px rgba(59,164,255,0.3);
+  }
+  .step-item.done { color: var(--success); }
+  .step-num {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  .step-item.active .step-num { background: rgba(255,255,255,0.25); }
+  .step-item.done .step-num { background: var(--success); color: #fff; }
+
+  /* ─── FORM CARD ─── */
+  .form-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+    margin-bottom: 20px;
+  }
+
+  .form-card-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .form-card-title .icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--primary-glow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .form-row-2 { grid-template-columns: 1fr 1fr; }
+
+  .form-input-full {
+    grid-column: 1 / -1;
+  }
+
+  /* ─── PAYMENT ─── */
+  .payment-methods {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .payment-method {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    cursor: pointer;
+    transition: all var(--transition);
+    text-align: center;
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+  .payment-method:hover, .payment-method.active {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: rgba(59,164,255,0.07);
+  }
+  .payment-method .pm-icon { font-size: 1.5rem; display: block; margin-bottom: 6px; }
+
+  .card-preview {
+    background: linear-gradient(135deg, #0d2240 0%, #173860 100%);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card-preview::before {
+    content: '';
+    position: absolute;
+    top: -30%;
+    right: -10%;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: rgba(59,164,255,0.12);
+  }
+  .card-number { font-family: 'Syne', sans-serif; font-size: 1.2rem; letter-spacing: 0.2em; margin-bottom: 20px; }
+  .card-details { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted); }
+
+  /* ─── ORDER SUMMARY ─── */
+  .order-summary {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    position: sticky;
+    top: 80px;
+  }
+
+  .summary-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    font-size: 0.88rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .summary-row .label { color: var(--text-muted); }
+  .summary-row.total {
+    border-bottom: none;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-top: 8px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .summary-row.total .value { color: var(--primary); }
+
+  /* ─── TICKET CONFIRMATION ─── */
+  .ticket {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    overflow: hidden;
+    max-width: 600px;
+    margin: 0 auto 24px;
+    box-shadow: 0 16px 60px rgba(0,0,0,0.4);
+  }
+
+  .ticket-header {
+    background: linear-gradient(135deg, var(--primary), #1a68cc);
+    padding: 28px 32px;
+    text-align: center;
+    position: relative;
+  }
+
+  .ticket-header h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
+
+  .pnr {
+    font-size: 0.85rem;
+    opacity: 0.8;
+    letter-spacing: 0.1em;
+  }
+
+  .ticket-body { padding: 28px 32px; }
+
+  .ticket-route {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .ticket-city {
+    text-align: center;
+    flex: 1;
+  }
+  .city-code {
+    font-family: 'Syne', sans-serif;
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--text);
+  }
+  .city-name { font-size: 0.8rem; color: var(--text-muted); }
+  .city-time { font-size: 1.1rem; font-weight: 600; margin-top: 4px; }
+
+  .ticket-plane-icon {
+    font-size: 1.5rem;
+    color: var(--primary);
+  }
+
+  .ticket-divider {
+    border: none;
+    border-top: 2px dashed rgba(255,255,255,0.08);
+    margin: 0 -32px 24px;
+    position: relative;
+  }
+  .ticket-divider::before, .ticket-divider::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+  }
+  .ticket-divider::before { left: -12px; }
+  .ticket-divider::after { right: -12px; }
+
+  .ticket-details {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .ticket-detail-item { text-align: center; }
+  .td-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 4px; }
+  .td-value { font-weight: 600; font-size: 0.95rem; }
+
+  .qr-area {
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 12px;
+  }
+
+  .qr-svg { width: 120px; height: 120px; }
+
+  /* ─── DASHBOARD ─── */
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .dash-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    transition: all var(--transition);
+  }
+  .dash-card:hover { border-color: rgba(59,164,255,0.25); transform: translateY(-2px); }
+
+  .dash-card-icon {
+    font-size: 1.6rem;
+    margin-bottom: 16px;
+    display: block;
+  }
+  .dash-card-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--primary);
+    display: block;
+  }
+  .dash-card-label { font-size: 0.82rem; color: var(--text-muted); margin-top: 4px; }
+  .dash-card.gold-card .dash-card-value { color: var(--gold); }
+
+  .bookings-table-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+
+  .table-header-bar {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .table-header-bar h3 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  thead th {
+    padding: 12px 24px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-align: left;
+    background: rgba(255,255,255,0.02);
+    border-bottom: 1px solid var(--border);
+  }
+  tbody td {
+    padding: 16px 24px;
+    font-size: 0.88rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    transition: background var(--transition);
+  }
+  tbody tr:hover td { background: rgba(59,164,255,0.04); }
+  tbody tr:last-child td { border-bottom: none; }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 12px;
+    border-radius: 50px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .badge-success { background: rgba(16,185,129,0.12); color: var(--success); }
+  .badge-pending { background: rgba(214,178,94,0.1); color: var(--gold); }
+  .badge-cancelled { background: rgba(239,68,68,0.1); color: var(--error); }
+
+  /* ─── AUTH PAGE ─── */
+  .auth-container {
+    min-height: calc(100vh - 64px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+  }
+  .auth-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 40px;
+    width: 100%;
+    max-width: 440px;
+    backdrop-filter: blur(24px);
+    box-shadow: 0 16px 60px rgba(0,0,0,0.4);
+    animation: fadeUp 0.5s ease both;
+  }
+  .auth-logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 2rem;
+    background: linear-gradient(135deg, var(--primary), var(--gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .auth-subtitle { text-align: center; color: var(--text-muted); font-size: 0.9rem; margin-bottom: 32px; }
+  .auth-tabs {
+    display: flex;
+    background: rgba(255,255,255,0.04);
+    border-radius: 50px;
+    padding: 4px;
+    margin-bottom: 28px;
+  }
+  .auth-tab {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    border-radius: 50px;
+    font-size: 0.88rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition);
+    color: var(--text-muted);
+    border: none;
+    background: transparent;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .auth-tab.active { background: var(--primary); color: #fff; }
+
+  .auth-form { display: flex; flex-direction: column; gap: 16px; }
+  .auth-form .form-group { gap: 8px; }
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin: 8px 0;
+  }
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .social-btn {
+    width: 100%;
+    padding: 11px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.88rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all var(--transition);
+  }
+  .social-btn:hover { border-color: var(--primary); background: rgba(59,164,255,0.05); }
+
+  /* ─── TOAST ─── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: rgba(16,185,129,0.15);
+    border: 1px solid var(--success);
+    border-radius: var(--radius-sm);
+    padding: 14px 20px;
+    color: var(--success);
+    font-size: 0.88rem;
+    font-weight: 500;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(.4,0,.2,1);
+    max-width: 320px;
+    pointer-events: none;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; pointer-events: auto; }
+
+  /* ─── MODAL ─── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(6px);
+    z-index: 5000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: auto; }
+  .modal {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 36px;
+    max-width: 500px;
+    width: 90%;
+    transform: scale(0.92) translateY(20px);
+    transition: transform 0.3s ease;
+  }
+  .modal-overlay.open .modal { transform: scale(1) translateY(0); }
+  .modal-close {
+    float: right;
+    background: rgba(255,255,255,0.07);
+    border: none;
+    color: var(--text-muted);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition);
+    font-family: monospace;
+  }
+  .modal-close:hover { background: rgba(239,68,68,0.2); color: var(--error); }
+
+  /* ─── MINI CHART (SVG) ─── */
+  .chart-area {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  .chart-area h3 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 20px;
+  }
+
+  /* ─── AUTOCOMPLETE ─── */
+  .ac-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0; right: 0;
+    background: #0d1e38;
+    border: 1px solid rgba(59,164,255,0.25);
+    border-radius: 12px;
+    z-index: 9999;
+    max-height: 280px;
+    overflow-y: auto;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    display: none;
+    margin-top: 4px;
+  }
+  .ac-dropdown.open { display: block; }
+  .ac-item {
+    padding: 11px 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: background var(--transition);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .ac-item:last-child { border-bottom: none; }
+  .ac-item:hover { background: rgba(59,164,255,0.1); }
+  .ac-code {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--primary);
+    width: 36px;
+    flex-shrink: 0;
+  }
+  .ac-info { flex: 1; }
+  .ac-city { font-size: 0.88rem; font-weight: 500; color: var(--text); }
+  .ac-airport { font-size: 0.75rem; color: var(--text-muted); margin-top: 1px; }
+  .ac-flag { font-size: 1.1rem; }
+
+  /* ─── CURRENCY SWITCHER ─── */
+  .currency-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 50px;
+    padding: 4px 6px;
+    margin-left: 16px;
+  }
+  .currency-btn {
+    padding: 5px 14px;
+    border-radius: 50px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: 'DM Sans', sans-serif;
+    transition: all var(--transition);
+    letter-spacing: 0.04em;
+  }
+  .currency-btn.active {
+    background: var(--gold);
+    color: #1a1000;
+    box-shadow: 0 0 14px rgba(214,178,94,0.3);
+  }
+
+  /* ─── DESTINATIONS MAP SECTION ─── */
+  .destinations-section {
+    padding: 60px 40px 20px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .destinations-section h2 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1.4rem;
+    margin-bottom: 6px;
+  }
+  .destinations-section .sub { color: var(--text-muted); font-size: 0.88rem; margin-bottom: 28px; }
+  .dest-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .dest-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 16px;
+    cursor: pointer;
+    transition: all var(--transition);
+    position: relative;
+    overflow: hidden;
+  }
+  .dest-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(59,164,255,0.06), transparent);
+    opacity: 0;
+    transition: opacity var(--transition);
+  }
+  .dest-card:hover { border-color: rgba(59,164,255,0.3); transform: translateY(-3px); }
+  .dest-card:hover::before { opacity: 1; }
+  .dest-card.intl { border-color: rgba(214,178,94,0.15); }
+  .dest-card.intl:hover { border-color: rgba(214,178,94,0.4); }
+  .dest-iata {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--primary);
+    letter-spacing: 0.04em;
+  }
+  .dest-card.intl .dest-iata { color: var(--gold); }
+  .dest-name { font-size: 0.88rem; font-weight: 600; margin-top: 4px; }
+  .dest-airport { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; line-height: 1.3; }
+  .dest-routes { margin-top: 10px; font-size: 0.72rem; color: var(--text-muted); line-height: 1.5; }
+  .dest-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 50px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    margin-top: 6px;
+  }
+  .dest-badge.local { background: rgba(59,164,255,0.1); color: var(--primary); }
+  .dest-badge.intl { background: rgba(214,178,94,0.1); color: var(--gold); }
+
+  @media (max-width: 768px) {
+    .dest-grid { grid-template-columns: repeat(2, 1fr); }
+    .destinations-section { padding: 40px 16px 20px; }
+  }
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .skeleton {
+    background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 6px;
+  }
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* Mobile */
+  @media (max-width: 768px) {
+    nav { padding: 0 16px; }
+    .nav-links { display: none; }
+    .search-grid { grid-template-columns: 1fr 1fr; }
+    .results-layout { grid-template-columns: 1fr; }
+    .filter-sidebar { display: none; }
+    .dashboard-grid { grid-template-columns: 1fr 1fr; }
+    .flight-card { grid-template-columns: auto 1fr; }
+    .flight-price { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; }
+    .form-row { grid-template-columns: 1fr 1fr; }
+    .payment-methods { grid-template-columns: repeat(3, 1fr); }
+    .steps-nav { flex-wrap: wrap; border-radius: var(--radius); }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav>
+  <div class="logo" onclick="showPage('home')">✦ MANIDINA</div>
+  <ul class="nav-links">
+    <li><a onclick="showPage('home')" class="active" id="nav-home">Accueil</a></li>
+    <li><a onclick="showPage('results')" id="nav-results">Vols</a></li>
+    <li><a onclick="showPage('booking')" id="nav-booking">Réservation</a></li>
+    <li><a onclick="showPage('dashboard')" id="nav-dashboard">Mon Espace</a></li>
+    <li><a onclick="showPage('admin')" id="nav-admin">Admin</a></li>
+  </ul>
+  <div class="nav-actions">
+    <div class="currency-bar">
+      <button class="currency-btn active" id="btnMGA" onclick="setCurrency('MGA')">Ar</button>
+      <button class="currency-btn" id="btnEUR" onclick="setCurrency('EUR')">€</button>
+      <button class="currency-btn" id="btnUSD" onclick="setCurrency('USD')">$</button>
+    </div>
+    <button class="btn btn-ghost" onclick="showAuth('login')">Connexion</button>
+    <button class="btn btn-primary" onclick="showAuth('register')">S'inscrire</button>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════ HOME PAGE ═══════════════════════════════════ -->
+<div class="page active" id="page-home">
+  <div class="hero">
+    <div class="hero-badge">✦ Plateforme de réservation aérienne</div>
+    <h1>Volez vers l'<span class="accent">inconnu</span>,<br>avec <span class="gold">style</span>.</h1>
+    <p class="hero-sub">Réservez vos billets en quelques secondes. Sièges, suppléments, paiement sécurisé — tout en un seul endroit.</p>
+
+    <!-- Search Box -->
+    <div class="search-box">
+      <div class="search-tabs">
+        <button class="search-tab active" onclick="setTab(this,'aller')">Aller simple</button>
+        <button class="search-tab" onclick="setTab(this,'retour')">Aller-retour</button>
+        <button class="search-tab" onclick="setTab(this,'multi')">Multi-destinations</button>
+      </div>
+      <div class="search-grid">
+        <div class="form-group" style="position:relative;">
+          <label>Départ</label>
+          <input type="text" placeholder="🛫 Ville ou code IATA" id="dep" value="Antananarivo (TNR)" oninput="showAC('dep','acDep')" onfocus="showAC('dep','acDep')" autocomplete="off">
+          <div class="ac-dropdown" id="acDep"></div>
+        </div>
+        <div class="form-group" style="position:relative;">
+          <label>Destination</label>
+          <input type="text" placeholder="🛬 Ville ou code IATA" id="dest" value="Paris CDG (CDG)" oninput="showAC('dest','acDest')" onfocus="showAC('dest','acDest')" autocomplete="off">
+          <div class="ac-dropdown" id="acDest"></div>
+        </div>
+        <div class="form-group">
+          <label>Date départ</label>
+          <input type="date" id="dateD" value="2025-09-15">
+        </div>
+        <div class="form-group">
+          <label>Passagers / Classe</label>
+          <select>
+            <option>1 adulte — Économique</option>
+            <option>2 adultes — Économique</option>
+            <option>1 adulte — Business</option>
+            <option>1 adulte — Première</option>
+          </select>
+        </div>
+        <button class="btn btn-primary search-btn-lg" onclick="searchFlights()">Rechercher</button>
+      </div>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat"><div class="stat-num">340+</div><div class="stat-label">Compagnies partenaires</div></div>
+      <div class="stat"><div class="stat-num">2.4M</div><div class="stat-label">Voyageurs satisfaits</div></div>
+      <div class="stat"><div class="stat-num">180+</div><div class="stat-label">Destinations</div></div>
+      <div class="stat"><div class="stat-num">98%</div><div class="stat-label">Taux de satisfaction</div></div>
+    </div>
+  </div>
+
+  <!-- DESTINATIONS GRID -->
+  <div class="destinations-section">
+    <h2>Aéroports & Destinations Madagascar</h2>
+    <p class="sub">Tous les vols au départ et à destination des aéroports malgaches</p>
+    <div class="dest-grid">
+      <div class="dest-card" onclick="fillSearch('Antananarivo (TNR)','')">
+        <div class="dest-iata">TNR</div>
+        <div class="dest-name">Antananarivo</div>
+        <div class="dest-airport">Ivato International</div>
+        <div class="dest-routes">Paris · La Réunion · Maurice · Nairobi · Addis-Abeba · Nosy Be · Mahajanga · Toliara · Toamasina</div>
+        <span class="dest-badge intl">Hub principal</span>
+      </div>
+      <div class="dest-card" onclick="fillSearch('Nosy Be (NOS)','')">
+        <div class="dest-iata">NOS</div>
+        <div class="dest-name">Nosy Be</div>
+        <div class="dest-airport">Fascene International</div>
+        <div class="dest-routes">Antananarivo · Milan · Paris (saisonnier) · La Réunion · Mayotte</div>
+        <span class="dest-badge intl">International</span>
+      </div>
+      <div class="dest-card" onclick="fillSearch('Toamasina (TMM)','')">
+        <div class="dest-iata">TMM</div>
+        <div class="dest-name">Toamasina</div>
+        <div class="dest-airport">Aéroport de Toamasina</div>
+        <div class="dest-routes">Antananarivo</div>
+        <span class="dest-badge local">Domestique</span>
+      </div>
+      <div class="dest-card" onclick="fillSearch('Mahajanga (MJN)','')">
+        <div class="dest-iata">MJN</div>
+        <div class="dest-name">Mahajanga</div>
+        <div class="dest-airport">Aéroport Amborovy</div>
+        <div class="dest-routes">Antananarivo · Nosy Be</div>
+        <span class="dest-badge local">Domestique</span>
+      </div>
+      <div class="dest-card" onclick="fillSearch('Toliara (TLE)','')">
+        <div class="dest-iata">TLE</div>
+        <div class="dest-name">Toliara</div>
+        <div class="dest-airport">Aéroport de Toliara</div>
+        <div class="dest-routes">Antananarivo</div>
+        <span class="dest-badge local">Domestique</span>
+      </div>
+      <div class="dest-card" onclick="fillSearch('Tolagnaro (FTU)','')">
+        <div class="dest-iata">FTU</div>
+        <div class="dest-name">Tolagnaro</div>
+        <div class="dest-airport">Aéroport de Tolagnaro</div>
+        <div class="dest-routes">Antananarivo</div>
+        <span class="dest-badge local">Domestique</span>
+      </div>
+      <div class="dest-card" onclick="fillSearch('Antsiranana (DIE)','')">
+        <div class="dest-iata">DIE</div>
+        <div class="dest-name">Antsiranana</div>
+        <div class="dest-airport">Aéroport Arrachart</div>
+        <div class="dest-routes">Antananarivo · Nosy Be</div>
+        <span class="dest-badge local">Domestique</span>
+      </div>
+      <div class="dest-card" onclick="fillSearch('Sainte-Marie (SMS)','')">
+        <div class="dest-iata">SMS</div>
+        <div class="dest-name">Sainte-Marie</div>
+        <div class="dest-airport">Aéroport de Sainte-Marie</div>
+        <div class="dest-routes">Antananarivo</div>
+        <span class="dest-badge local">Domestique</span>
+      </div>
+      <div class="dest-card" onclick="fillSearch('Sambava (SVB)','')">
+        <div class="dest-iata">SVB</div>
+        <div class="dest-name">Sambava</div>
+        <div class="dest-airport">Aéroport de Sambava</div>
+        <div class="dest-routes">Antananarivo</div>
+        <span class="dest-badge local">Domestique</span>
+      </div>
+      <div class="dest-card" onclick="fillSearch('Morondava (MOQ)','')">
+        <div class="dest-iata">MOQ</div>
+        <div class="dest-name">Morondava</div>
+        <div class="dest-airport">Aéroport de Morondava</div>
+        <div class="dest-routes">Antananarivo</div>
+        <span class="dest-badge local">Domestique</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ RESULTS PAGE ═══════════════════════════════════ -->
+<div class="page" id="page-results">
+  <div class="page-inner">
+    <h1 class="page-title">Résultats de recherche</h1>
+    <p class="page-subtitle" id="results-subtitle">Antananarivo → Paris CDG · 15 Sept 2025 · 1 passager</p>
+
+    <div class="results-layout">
+      <!-- Sidebar Filters -->
+      <aside class="filter-sidebar">
+        <div class="filter-title">⚙ Filtres</div>
+
+        <div class="filter-section">
+          <div class="filter-section-title">Budget max <span id="currencyLabel">Ar</span></div>
+          <input type="range" class="filter-range" min="500000" max="15000000" value="6000000" id="priceRange" oninput="updateBudgetSlider()">
+          <div class="filter-range-labels"><span id="priceMin">500 000 Ar</span><span id="priceVal">6 000 000 Ar</span></div>
+        </div>
+
+        <div class="filter-section">
+          <div class="filter-section-title">Escales</div>
+          <div class="checkbox-group">
+            <label class="checkbox-item"><input type="checkbox" checked> Vol direct</label>
+            <label class="checkbox-item"><input type="checkbox" checked> 1 escale</label>
+            <label class="checkbox-item"><input type="checkbox"> 2 escales+</label>
+          </div>
+        </div>
+
+        <div class="filter-section">
+          <div class="filter-section-title">Compagnies</div>
+          <div class="checkbox-group">
+            <label class="checkbox-item"><input type="checkbox" checked> Air Madagascar</label>
+            <label class="checkbox-item"><input type="checkbox" checked> Air France</label>
+            <label class="checkbox-item"><input type="checkbox"> Ethiopian Airlines</label>
+            <label class="checkbox-item"><input type="checkbox" checked> Turkish Airlines</label>
+            <label class="checkbox-item"><input type="checkbox"> Emirates</label>
+          </div>
+        </div>
+
+        <div class="filter-section">
+          <div class="filter-section-title">Classe</div>
+          <div class="checkbox-group">
+            <label class="checkbox-item"><input type="checkbox" checked> Économique</label>
+            <label class="checkbox-item"><input type="checkbox"> Business</label>
+            <label class="checkbox-item"><input type="checkbox"> Première</label>
+          </div>
+        </div>
+
+        <div class="filter-section">
+          <div class="filter-section-title">Heure de départ</div>
+          <input type="range" class="filter-range" min="0" max="24" value="18">
+          <div class="filter-range-labels"><span>00:00</span><span>23:59</span></div>
+        </div>
+      </aside>
+
+      <!-- Results -->
+      <div>
+        <div class="sort-bar">
+          <button class="sort-chip active">Prix ↑</button>
+          <button class="sort-chip" onclick="activateChip(this)">Durée ↑</button>
+          <button class="sort-chip" onclick="activateChip(this)">Rapidité</button>
+          <button class="sort-chip" onclick="activateChip(this)">Note compagnie</button>
+        </div>
+
+        <!-- Flight Cards -->
+        <div class="flight-card" onclick="goToBooking('TNR','CDG','Air Madagascar','MD042','08:30','21:50','13h 20min','Direct','Boeing 787',3430000,0)">
+          <div class="airline-logo">AIR<br>MDG</div>
+          <div class="flight-route">
+            <div><div class="route-time">08:30</div><div class="route-code">TNR</div></div>
+            <div class="route-line">
+              <div class="route-duration">13h 20min</div>
+              <div class="route-bar"></div>
+              <div class="route-stops">Direct</div>
+            </div>
+            <div><div class="route-time">21:50</div><div class="route-code">CDG</div></div>
+          </div>
+          <div class="flight-info">
+            <div class="flight-class">Économique</div>
+            <div style="font-size:0.78rem;color:var(--text-muted)">Boeing 787</div>
+            <div class="seats-left">⚠ 4 places restantes</div>
+          </div>
+          <div class="flight-price">
+            <div class="price-amount" data-mga="3430000">Ar 3 430 000</div>
+            <div class="price-per">par passager</div>
+            <button class="btn btn-primary select-btn">Sélectionner →</button>
+          </div>
+        </div>
+
+        <div class="flight-card" onclick="goToBooking('TNR','CDG','Air France','AF844','11:15','03:00+1','15h 45min','1 escale (NBI)','Airbus A350',3705000,0)">
+          <div class="airline-logo">AF</div>
+          <div class="flight-route">
+            <div><div class="route-time">11:15</div><div class="route-code">TNR</div></div>
+            <div class="route-line">
+              <div class="route-duration">15h 45min</div>
+              <div class="route-bar"></div>
+              <div class="route-stops has-stop">1 escale (NBI)</div>
+            </div>
+            <div><div class="route-time">03:00+1</div><div class="route-code">CDG</div></div>
+          </div>
+          <div class="flight-info">
+            <div class="flight-class">Économique</div>
+            <div style="font-size:0.78rem;color:var(--text-muted)">Airbus A350</div>
+            <div style="font-size:0.78rem;color:var(--success);margin-top:4px">✓ 32 places dispo</div>
+          </div>
+          <div class="flight-price">
+            <div class="price-amount" data-mga="3705000">Ar 3 705 000</div>
+            <div class="price-per">par passager</div>
+            <button class="btn btn-primary select-btn">Sélectionner →</button>
+          </div>
+        </div>
+
+        <div class="flight-card premium" onclick="goToBooking('TNR','CDG','Turkish Airlines','TK072','23:45','18:55+1','18h 10min','1 escale (IST)','Boeing 777',10680000,1)">
+          <div class="airline-logo" style="color:var(--gold)">TK</div>
+          <div class="flight-route">
+            <div><div class="route-time">23:45</div><div class="route-code">TNR</div></div>
+            <div class="route-line">
+              <div class="route-duration">18h 10min</div>
+              <div class="route-bar"></div>
+              <div class="route-stops has-stop">1 escale (IST)</div>
+            </div>
+            <div><div class="route-time">18:55+1</div><div class="route-code">CDG</div></div>
+          </div>
+          <div class="flight-info">
+            <div class="flight-class business">Business</div>
+            <div style="font-size:0.78rem;color:var(--text-muted)">Boeing 777</div>
+            <div style="font-size:0.78rem;color:var(--success);margin-top:4px">✓ 12 places dispo</div>
+          </div>
+          <div class="flight-price">
+            <div class="price-amount" style="color:var(--gold)" data-mga="10680000">Ar 10 680 000</div>
+            <div class="price-per">par passager</div>
+            <button class="btn btn-gold select-btn">Sélectionner →</button>
+          </div>
+        </div>
+
+        <div class="flight-card" onclick="goToBooking('TNR','CDG','Ethiopian Airlines','ET911','02:20','18:50','16h 30min','1 escale (ADD)','Boeing 737',3090000,0)">
+          <div class="airline-logo">ET</div>
+          <div class="flight-route">
+            <div><div class="route-time">02:20</div><div class="route-code">TNR</div></div>
+            <div class="route-line">
+              <div class="route-duration">16h 30min</div>
+              <div class="route-bar"></div>
+              <div class="route-stops has-stop">1 escale (ADD)</div>
+            </div>
+            <div><div class="route-time">18:50</div><div class="route-code">CDG</div></div>
+          </div>
+          <div class="flight-info">
+            <div class="flight-class">Économique</div>
+            <div style="font-size:0.78rem;color:var(--text-muted)">Boeing 737</div>
+            <div style="font-size:0.78rem;color:var(--success);margin-top:4px">✓ 21 places dispo</div>
+          </div>
+          <div class="flight-price">
+            <div class="price-amount" data-mga="3090000">Ar 3 090 000</div>
+            <div class="price-per">par passager</div>
+            <button class="btn btn-primary select-btn">Sélectionner →</button>
+          </div>
+        </div>
+
+        <!-- DOMESTIC FLIGHTS -->
+        <div style="margin-top:28px;margin-bottom:12px;font-family:'Syne',sans-serif;font-weight:700;font-size:1rem;color:var(--text-muted);letter-spacing:0.06em;text-transform:uppercase;">✈ Vols intérieurs Madagascar</div>
+
+        <div class="flight-card" onclick="goToBooking('TNR','NOS','Air Madagascar','MD101','07:00','08:20','1h 20min','Direct','ATR 72',295000,0)">
+          <div class="airline-logo" style="font-size:0.65rem;">AIR<br>MDG</div>
+          <div class="flight-route">
+            <div><div class="route-time">07:00</div><div class="route-code">TNR</div></div>
+            <div class="route-line">
+              <div class="route-duration">1h 20min</div>
+              <div class="route-bar"></div>
+              <div class="route-stops">Direct</div>
+            </div>
+            <div><div class="route-time">08:20</div><div class="route-code">NOS</div></div>
+          </div>
+          <div class="flight-info">
+            <div class="flight-class">Économique</div>
+            <div style="font-size:0.78rem;color:var(--text-muted)">ATR 72</div>
+            <div style="font-size:0.78rem;color:var(--success);margin-top:4px">✓ 18 places dispo</div>
+          </div>
+          <div class="flight-price">
+            <div class="price-amount" data-mga="295000">Ar 295 000</div>
+            <div class="price-per">par passager</div>
+            <button class="btn btn-primary select-btn">Sélectionner →</button>
+          </div>
+        </div>
+
+        <div class="flight-card" onclick="goToBooking('TNR','TMM','Air Madagascar','MD205','09:30','10:30','1h 00min','Direct','ATR 42',185000,0)">
+          <div class="airline-logo" style="font-size:0.65rem;">AIR<br>MDG</div>
+          <div class="flight-route">
+            <div><div class="route-time">09:30</div><div class="route-code">TNR</div></div>
+            <div class="route-line">
+              <div class="route-duration">1h 00min</div>
+              <div class="route-bar"></div>
+              <div class="route-stops">Direct</div>
+            </div>
+            <div><div class="route-time">10:30</div><div class="route-code">TMM</div></div>
+          </div>
+          <div class="flight-info">
+            <div class="flight-class">Économique</div>
+            <div style="font-size:0.78rem;color:var(--text-muted)">ATR 42</div>
+            <div style="font-size:0.78rem;color:var(--success);margin-top:4px">✓ 24 places dispo</div>
+          </div>
+          <div class="flight-price">
+            <div class="price-amount" data-mga="185000">Ar 185 000</div>
+            <div class="price-per">par passager</div>
+            <button class="btn btn-primary select-btn">Sélectionner →</button>
+          </div>
+        </div>
+
+        <div class="flight-card" onclick="goToBooking('TNR','MJN','Air Madagascar','MD310','11:00','12:10','1h 10min','Direct','ATR 72',210000,0)">
+          <div class="airline-logo" style="font-size:0.65rem;">AIR<br>MDG</div>
+          <div class="flight-route">
+            <div><div class="route-time">11:00</div><div class="route-code">TNR</div></div>
+            <div class="route-line">
+              <div class="route-duration">1h 10min</div>
+              <div class="route-bar"></div>
+              <div class="route-stops">Direct</div>
+            </div>
+            <div><div class="route-time">12:10</div><div class="route-code">MJN</div></div>
+          </div>
+          <div class="flight-info">
+            <div class="flight-class">Économique</div>
+            <div style="font-size:0.78rem;color:var(--text-muted)">ATR 72</div>
+            <div style="font-size:0.78rem;color:var(--success);margin-top:4px">✓ 30 places dispo</div>
+          </div>
+          <div class="flight-price">
+            <div class="price-amount" data-mga="210000">Ar 210 000</div>
+            <div class="price-per">par passager</div>
+            <button class="btn btn-primary select-btn">Sélectionner →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ BOOKING PAGE ═══════════════════════════════════ -->
+<div class="page" id="page-booking">
+  <div class="page-inner">
+    <h1 class="page-title">Votre réservation</h1>
+    <p class="page-subtitle">Air Madagascar · TNR → CDG · 15 Sept 2025</p>
+
+    <!-- Steps -->
+    <div class="steps-nav" id="stepsNav">
+      <div class="step-item active" id="step1"><span class="step-num">1</span> Sièges</div>
+      <div class="step-item" id="step2"><span class="step-num">2</span> Passagers</div>
+      <div class="step-item" id="step3"><span class="step-num">3</span> Suppléments</div>
+      <div class="step-item" id="step4"><span class="step-num">4</span> Paiement</div>
+    </div>
+
+    <!-- STEP 1: Seat Selection -->
+    <div id="bookingStep1">
+      <div style="display:grid;grid-template-columns:1fr 320px;gap:24px;">
+        <div class="seat-layout">
+          <h3 style="font-family:'Syne',sans-serif;font-weight:700;margin-bottom:20px;">Sélectionnez votre siège</h3>
+          <div class="aircraft-cabin">
+            <div class="cabin-nose">✈ Boeing 787 — Dreamliner</div>
+
+            <!-- Seat rows -->
+            <div id="seatMap"></div>
+
+            <div class="seat-legend">
+              <div class="legend-item"><div class="legend-dot" style="background:rgba(59,164,255,0.3);border:1.5px solid var(--primary)"></div>Disponible</div>
+              <div class="legend-item"><div class="legend-dot" style="background:rgba(239,68,68,0.15);border:1.5px solid rgba(239,68,68,0.4)"></div>Occupé</div>
+              <div class="legend-item"><div class="legend-dot" style="background:rgba(214,178,94,0.15);border:1.5px solid var(--gold)"></div>Premium</div>
+              <div class="legend-item"><div class="legend-dot" style="background:var(--success)"></div>Sélectionné</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="order-summary">
+          <div class="summary-title">Récapitulatif</div>
+          <div class="summary-row"><span class="label" id="bookingRouteLbl">Vol TNR → CDG</span><span id="bookingPrice1">Ar 3 430 000</span></div>
+          <div class="summary-row"><span class="label">Siège sélectionné</span><span id="selectedSeatLabel" style="color:var(--primary)">—</span></div>
+          <div class="summary-row"><span class="label">Taxes & frais</span><span id="bookingTax1">Ar 490 000</span></div>
+          <div class="summary-row total"><span class="label">TOTAL</span><span class="value" id="totalAmount">Ar 3 920 000</span></div>
+          <button class="btn btn-primary" style="width:100%;margin-top:20px;padding:13px;" onclick="nextStep(2)">Continuer →</button>
+          <button class="btn btn-ghost" style="width:100%;margin-top:8px;padding:12px;font-size:0.85rem;" onclick="showPage('results')">← Retour aux vols</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 2: Passenger Info -->
+    <div id="bookingStep2" style="display:none;">
+      <div style="display:grid;grid-template-columns:1fr 320px;gap:24px;">
+        <div>
+          <div class="form-card">
+            <div class="form-card-title"><div class="icon">👤</div>Informations passager 1</div>
+            <div class="form-row">
+              <div class="form-group"><label>Prénom</label><input type="text" placeholder="Jean" value="Marie"></div>
+              <div class="form-group"><label>Nom</label><input type="text" placeholder="DUPONT" value="RAKOTO"></div>
+              <div class="form-group"><label>Date de naissance</label><input type="date" value="1990-03-22"></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Nationalité</label><select><option>Malgache</option><option>Française</option></select></div>
+              <div class="form-group"><label>N° Passeport</label><input type="text" placeholder="AB123456" value="MG8754321"></div>
+              <div class="form-group"><label>Expiration passeport</label><input type="date" value="2030-07-10"></div>
+            </div>
+          </div>
+
+          <div class="form-card">
+            <div class="form-card-title"><div class="icon">📦</div>Suppléments bagages</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+              <label style="display:flex;flex-direction:column;gap:8px;cursor:pointer;">
+                <div style="background:rgba(59,164,255,0.06);border:1px solid rgba(59,164,255,0.2);border-radius:12px;padding:16px;text-align:center;transition:all var(--transition);" class="extra-opt" onclick="selectExtra(this)">
+                  <div style="font-size:1.5rem;margin-bottom:8px;">🧳</div>
+                  <div style="font-size:0.85rem;font-weight:600;">Cabine 8kg</div>
+                  <div style="color:var(--primary);font-weight:700;margin-top:6px;">Inclus</div>
+                </div>
+              </label>
+              <label style="display:flex;flex-direction:column;gap:8px;cursor:pointer;">
+                <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center;transition:all var(--transition);" class="extra-opt" onclick="selectExtra(this)">
+                  <div style="font-size:1.5rem;margin-bottom:8px;">🧳</div>
+                  <div style="font-size:0.85rem;font-weight:600;">Soute 23kg</div>
+                  <div style="color:var(--gold);font-weight:700;margin-top:6px;" class="price-dyn" data-mga="225000">+ Ar 225 000</div>
+                </div>
+              </label>
+              <label style="display:flex;flex-direction:column;gap:8px;cursor:pointer;">
+                <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center;transition:all var(--transition);" class="extra-opt" onclick="selectExtra(this)">
+                  <div style="font-size:1.5rem;margin-bottom:8px;">🍽</div>
+                  <div style="font-size:0.85rem;font-weight:600;">Repas spécial</div>
+                  <div style="color:var(--gold);font-weight:700;margin-top:6px;" class="price-dyn" data-mga="90000">+ Ar 90 000</div>
+                </div>
+              </label>
+            </div>
+          </div>
+          <button class="btn btn-primary" style="padding:13px 32px;" onclick="nextStep(3)">Continuer → Paiement</button>
+        </div>
+        <div class="order-summary">
+          <div class="summary-title">Récapitulatif</div>
+          <div class="summary-row"><span class="label" id="bookingRouteLbl2">Vol TNR → CDG</span><span id="bookingPrice2">Ar 3 430 000</span></div>
+          <div class="summary-row"><span class="label">Siège <span id="seatLabel2" style="color:var(--primary)">12A</span></span><span>Inclus</span></div>
+          <div class="summary-row"><span class="label">Bagages soute</span><span id="bookingBag2" class="price-dyn" data-mga="225000">Ar 225 000</span></div>
+          <div class="summary-row"><span class="label">Taxes & frais</span><span id="bookingTax2">Ar 490 000</span></div>
+          <div class="summary-row total"><span class="label">TOTAL</span><span class="value" id="bookingTotal2">Ar 4 145 000</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 3: Payment -->
+    <div id="bookingStep3" style="display:none;">
+      <div style="display:grid;grid-template-columns:1fr 320px;gap:24px;">
+        <div>
+          <div class="form-card">
+            <div class="form-card-title"><div class="icon">💳</div>Moyen de paiement</div>
+            <div class="payment-methods" style="grid-template-columns:repeat(4,1fr);">
+              <div class="payment-method active" id="pm-card" onclick="selectPayment(this,'card')">
+                <span class="pm-icon">💳</span>
+                Carte bancaire
+              </div>
+              <div class="payment-method" id="pm-mvola" onclick="selectPayment(this,'mvola')">
+                <span class="pm-icon">📱</span>
+                MVola
+              </div>
+              <div class="payment-method" id="pm-orange" onclick="selectPayment(this,'orange')">
+                <span class="pm-icon">🟠</span>
+                Orange Money
+              </div>
+              <div class="payment-method" id="pm-paypal" onclick="selectPayment(this,'paypal')">
+                <span class="pm-icon">🅿</span>
+                PayPal
+              </div>
+            </div>
+
+            <!-- Card Form -->
+            <div id="payForm-card">
+              <div class="card-preview">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                  <span style="font-family:'Syne',sans-serif;font-weight:700;font-size:1.2rem;">MANIDINA</span>
+                  <span style="font-size:1.5rem;">💳</span>
+                </div>
+                <div class="card-number" id="cardNum">•••• •••• •••• 4242</div>
+                <div class="card-details">
+                  <div><div style="font-size:0.7rem;margin-bottom:2px;opacity:0.6">TITULAIRE</div>MARIE RAKOTO</div>
+                  <div><div style="font-size:0.7rem;margin-bottom:2px;opacity:0.6">EXPIRE</div>09/28</div>
+                </div>
+              </div>
+              <div class="form-row form-row-2">
+                <div class="form-group"><label>Numéro de carte</label><input type="text" placeholder="1234 5678 9012 3456" oninput="updateCardNum(this.value)" maxlength="19"></div>
+                <div class="form-group"><label>Nom du titulaire</label><input type="text" placeholder="MARIE RAKOTO" value="MARIE RAKOTO"></div>
+              </div>
+              <div class="form-row form-row-2">
+                <div class="form-group"><label>Date d'expiration</label><input type="text" placeholder="MM/AA" value="09/28" maxlength="5"></div>
+                <div class="form-group"><label>CVV</label><input type="text" placeholder="•••" maxlength="3" style="letter-spacing:0.2em"></div>
+              </div>
+            </div>
+
+            <!-- MVola Form -->
+            <div id="payForm-mvola" style="display:none;">
+              <div style="background:linear-gradient(135deg,#1a0d2e,#2d1060);border-radius:16px;padding:24px;margin-bottom:20px;text-align:center;">
+                <div style="font-size:2rem;margin-bottom:8px;">📱</div>
+                <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:1.1rem;color:#a855f7;margin-bottom:4px;">MVola</div>
+                <div style="font-size:0.85rem;color:var(--text-muted);">Paiement mobile sécurisé</div>
+              </div>
+              <div class="form-group" style="margin-bottom:16px;"><label>Numéro MVola (034 / 038)</label><input type="tel" placeholder="034 00 000 00" value="034 12 345 67"></div>
+              <div style="background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.2);border-radius:8px;padding:12px;font-size:0.82rem;color:var(--text-muted);">
+                📩 Un code de confirmation sera envoyé par SMS au numéro saisi.
+              </div>
+            </div>
+
+            <!-- Orange Money Form -->
+            <div id="payForm-orange" style="display:none;">
+              <div style="background:linear-gradient(135deg,#2e1a00,#5c3500);border-radius:16px;padding:24px;margin-bottom:20px;text-align:center;">
+                <div style="font-size:2rem;margin-bottom:8px;">🟠</div>
+                <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:1.1rem;color:#f97316;margin-bottom:4px;">Orange Money</div>
+                <div style="font-size:0.85rem;color:var(--text-muted);">Paiement mobile Orange</div>
+              </div>
+              <div class="form-group" style="margin-bottom:16px;"><label>Numéro Orange (032 / 033)</label><input type="tel" placeholder="032 00 000 00" value="032 98 765 43"></div>
+              <div style="background:rgba(249,115,22,0.08);border:1px solid rgba(249,115,22,0.2);border-radius:8px;padding:12px;font-size:0.82rem;color:var(--text-muted);">
+                📩 Un code de confirmation sera envoyé par SMS au numéro saisi.
+              </div>
+            </div>
+
+            <!-- PayPal Form -->
+            <div id="payForm-paypal" style="display:none;">
+              <div style="background:linear-gradient(135deg,#001a4e,#003087);border-radius:16px;padding:24px;margin-bottom:20px;text-align:center;">
+                <div style="font-size:2rem;margin-bottom:8px;">🅿</div>
+                <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:1.1rem;color:#009cde;margin-bottom:4px;">PayPal</div>
+                <div style="font-size:0.85rem;color:var(--text-muted);">Paiement international sécurisé</div>
+              </div>
+              <div class="form-group" style="margin-bottom:16px;"><label>Adresse email PayPal</label><input type="email" placeholder="vous@email.com" value="marie.rakoto@email.mg"></div>
+              <div style="background:rgba(0,156,222,0.08);border:1px solid rgba(0,156,222,0.2);border-radius:8px;padding:12px;font-size:0.82rem;color:var(--text-muted);">
+                🔗 Vous serez redirigé vers PayPal pour finaliser le paiement.
+              </div>
+            </div>
+          </div>
+
+          <button class="btn btn-success" style="padding:15px 40px;font-size:1rem;border-radius:var(--radius-sm);" onclick="confirmPayment()">🔒 Payer <span id="payBtnAmount">Ar 4 145 000</span> — Confirmer</button>
+          <p style="font-size:0.78rem;color:var(--text-muted);margin-top:12px;">🔐 Paiement sécurisé · Toutes les transactions sont chiffrées SSL 256-bit</p>
+        </div>
+
+        <div class="order-summary">
+          <div class="summary-title">Récapitulatif final</div>
+          <div class="summary-row"><span class="label" id="bookingRouteLbl3">Vol TNR → CDG</span><span id="bookingPrice3">Ar 3 430 000</span></div>
+          <div class="summary-row"><span class="label">Siège 12A</span><span>Inclus</span></div>
+          <div class="summary-row"><span class="label">Bagages soute</span><span id="bookingBag3" class="price-dyn" data-mga="225000">Ar 225 000</span></div>
+          <div class="summary-row"><span class="label">Taxes & frais</span><span id="bookingTax3">Ar 490 000</span></div>
+          <div class="summary-row total"><span class="label">TOTAL</span><span class="value" id="bookingTotal3">Ar 4 145 000</span></div>
+          <div style="margin-top:16px;padding:12px;background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.2);border-radius:8px;font-size:0.8rem;color:var(--success);">
+            ✓ Remboursable jusqu'à 48h avant le vol
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ CONFIRMATION PAGE ═══════════════════════════════════ -->
+<div class="page" id="page-confirm">
+  <div class="page-inner" style="text-align:center;">
+    <div style="font-size:4rem;margin-bottom:16px;animation:fadeDown 0.5s ease;">✅</div>
+    <h1 class="page-title" style="text-align:center;color:var(--success);margin-bottom:8px;">Réservation confirmée !</h1>
+    <p style="color:var(--text-muted);margin-bottom:40px;">Votre billet électronique a été envoyé à <strong>marie.rakoto@email.mg</strong></p>
+
+    <!-- Ticket -->
+    <div class="ticket">
+      <div class="ticket-header">
+        <div style="font-size:0.8rem;opacity:0.7;margin-bottom:4px;">✦ MANIDINA · BILLET ÉLECTRONIQUE</div>
+        <h2>Air Madagascar</h2>
+        <div class="pnr">PNR: MNI-2025-KX7R4</div>
+      </div>
+      <div class="ticket-body">
+        <div class="ticket-route">
+          <div class="ticket-city">
+            <div class="city-code">TNR</div>
+            <div class="city-name">Antananarivo</div>
+            <div class="city-time">08:30</div>
+          </div>
+          <div style="flex:1;text-align:center;">
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:6px;">13h 20min · Direct</div>
+            <div class="ticket-plane-icon">✈</div>
+          </div>
+          <div class="ticket-city">
+            <div class="city-code">CDG</div>
+            <div class="city-name">Paris</div>
+            <div class="city-time">21:50</div>
+          </div>
+        </div>
+
+        <hr class="ticket-divider">
+
+        <div class="ticket-details">
+          <div class="ticket-detail-item">
+            <div class="td-label">Passager</div>
+            <div class="td-value">MARIE RAKOTO</div>
+          </div>
+          <div class="ticket-detail-item">
+            <div class="td-label">Siège</div>
+            <div class="td-value" style="color:var(--primary);">12A</div>
+          </div>
+          <div class="ticket-detail-item">
+            <div class="td-label">Classe</div>
+            <div class="td-value">Économique</div>
+          </div>
+          <div class="ticket-detail-item">
+            <div class="td-label">Date</div>
+            <div class="td-value">15 Sept 2025</div>
+          </div>
+          <div class="ticket-detail-item">
+            <div class="td-label">Porte</div>
+            <div class="td-value" style="color:var(--gold);">G22</div>
+          </div>
+          <div class="ticket-detail-item">
+            <div class="td-label">Embarquement</div>
+            <div class="td-value">07:50</div>
+          </div>
+        </div>
+
+        <div class="qr-area">
+          <!-- QR Code SVG -->
+          <svg class="qr-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" fill="#0d1a2e"/>
+            <!-- QR-like pattern -->
+            <rect x="5" y="5" width="30" height="30" fill="none" stroke="#3BA4FF" stroke-width="3"/>
+            <rect x="10" y="10" width="20" height="20" fill="#3BA4FF"/>
+            <rect x="65" y="5" width="30" height="30" fill="none" stroke="#3BA4FF" stroke-width="3"/>
+            <rect x="70" y="10" width="20" height="20" fill="#3BA4FF"/>
+            <rect x="5" y="65" width="30" height="30" fill="none" stroke="#3BA4FF" stroke-width="3"/>
+            <rect x="10" y="70" width="20" height="20" fill="#3BA4FF"/>
+            <!-- data cells -->
+            <rect x="42" y="5" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="50" y="5" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="42" y="13" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="58" y="13" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="42" y="21" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="50" y="21" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="42" y="42" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="50" y="42" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="58" y="42" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="66" y="42" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="74" y="42" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="5" y="42" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="13" y="42" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="21" y="42" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="29" y="42" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="37" y="42" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="5" y="50" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="21" y="50" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="37" y="50" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="58" y="50" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="74" y="50" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="5" y="58" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="13" y="58" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="29" y="58" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="42" y="58" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="50" y="58" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="66" y="58" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="42" y="66" width="6" height="6" fill="#D6B25E"/>
+            <rect x="58" y="66" width="6" height="6" fill="#D6B25E"/>
+            <rect x="66" y="66" width="6" height="6" fill="#D6B25E"/>
+            <rect x="74" y="66" width="6" height="6" fill="#D6B25E"/>
+            <rect x="50" y="74" width="6" height="6" fill="#D6B25E"/>
+            <rect x="66" y="74" width="6" height="6" fill="#D6B25E"/>
+            <rect x="42" y="82" width="6" height="6" fill="#D6B25E"/>
+            <rect x="58" y="82" width="6" height="6" fill="#D6B25E"/>
+            <rect x="74" y="82" width="6" height="6" fill="#D6B25E"/>
+            <rect x="42" y="90" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="50" y="90" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="66" y="90" width="6" height="6" fill="#3BA4FF"/>
+            <rect x="74" y="90" width="6" height="6" fill="#3BA4FF"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+      <button class="btn btn-primary" style="padding:12px 28px;" onclick="showToast('📥 Billet PDF téléchargé !')">📥 Télécharger PDF</button>
+      <button class="btn btn-ghost" style="padding:12px 28px;" onclick="showToast('✉ Email envoyé à marie.rakoto@email.mg')">✉ Renvoyer par email</button>
+      <button class="btn btn-ghost" style="padding:12px 28px;" onclick="showPage('dashboard')">← Mon espace</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ DASHBOARD PAGE ═══════════════════════════════════ -->
+<div class="page" id="page-dashboard">
+  <div class="page-inner">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;">
+      <div>
+        <h1 class="page-title">Bonjour, Marie 👋</h1>
+        <p class="page-subtitle">Bienvenue dans votre espace personnel</p>
+      </div>
+      <button class="btn btn-primary" onclick="showPage('home')">+ Nouveau vol</button>
+    </div>
+
+    <div class="dashboard-grid">
+      <div class="dash-card">
+        <span class="dash-card-icon">✈</span>
+        <span class="dash-card-value">12</span>
+        <div class="dash-card-label">Vols effectués</div>
+      </div>
+      <div class="dash-card">
+        <span class="dash-card-icon">📅</span>
+        <span class="dash-card-value">3</span>
+        <div class="dash-card-label">Réservations à venir</div>
+      </div>
+      <div class="dash-card gold-card">
+        <span class="dash-card-icon">⭐</span>
+        <span class="dash-card-value">4 820</span>
+        <div class="dash-card-label">Miles accumulés</div>
+      </div>
+      <div class="dash-card">
+        <span class="dash-card-icon">💰</span>
+        <span class="dash-card-value">€ 3 740</span>
+        <div class="dash-card-label">Total dépensé</div>
+      </div>
+    </div>
+
+    <div class="bookings-table-wrap">
+      <div class="table-header-bar">
+        <h3>Mes réservations</h3>
+        <input type="text" placeholder="Rechercher..." style="background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.85rem;outline:none;width:200px;">
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>PNR</th>
+            <th>Trajet</th>
+            <th>Date</th>
+            <th>Classe</th>
+            <th>Siège</th>
+            <th>Montant</th>
+            <th>Statut</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="color:var(--primary);font-weight:600;">MNI-KX7R4</td>
+            <td>TNR → CDG</td>
+            <td>15 Sept 2025</td>
+            <td>Économique</td>
+            <td>12A</td>
+            <td>€ 830</td>
+            <td><span class="badge badge-success">Confirmé</span></td>
+            <td><button class="btn btn-ghost" style="padding:5px 12px;font-size:0.78rem;" onclick="showPage('confirm')">Voir billet</button></td>
+          </tr>
+          <tr>
+            <td style="color:var(--primary);font-weight:600;">MNI-JR291</td>
+            <td>CDG → NYC</td>
+            <td>22 Oct 2025</td>
+            <td>Business</td>
+            <td>3C</td>
+            <td>€ 2 140</td>
+            <td><span class="badge badge-pending">En attente</span></td>
+            <td><button class="btn btn-ghost" style="padding:5px 12px;font-size:0.78rem;">Gérer</button></td>
+          </tr>
+          <tr>
+            <td style="color:var(--primary);font-weight:600;">MNI-BZ834</td>
+            <td>NBI → TNR</td>
+            <td>08 Août 2025</td>
+            <td>Économique</td>
+            <td>21F</td>
+            <td>€ 380</td>
+            <td><span class="badge badge-success">Effectué</span></td>
+            <td><button class="btn btn-ghost" style="padding:5px 12px;font-size:0.78rem;" onclick="showToast('📥 Téléchargement...')">Télécharger</button></td>
+          </tr>
+          <tr>
+            <td style="color:var(--primary);font-weight:600;">MNI-QP018</td>
+            <td>CDG → TNR</td>
+            <td>15 Juin 2025</td>
+            <td>Économique</td>
+            <td>18B</td>
+            <td>€ 687</td>
+            <td><span class="badge badge-cancelled">Annulé</span></td>
+            <td><span style="font-size:0.78rem;color:var(--text-muted)">Remboursé</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ ADMIN PAGE ═══════════════════════════════════ -->
+<div class="page" id="page-admin">
+  <div class="page-inner">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;">
+      <div>
+        <h1 class="page-title">Dashboard Admin</h1>
+        <p class="page-subtitle">Vue d'ensemble de la plateforme MANIDINA</p>
+      </div>
+      <button class="btn btn-primary">+ Ajouter un vol</button>
+    </div>
+
+    <div class="dashboard-grid" style="grid-template-columns:repeat(4,1fr);">
+      <div class="dash-card">
+        <span class="dash-card-icon">💰</span>
+        <span class="dash-card-value">€ 842K</span>
+        <div class="dash-card-label">Revenus totaux</div>
+      </div>
+      <div class="dash-card gold-card">
+        <span class="dash-card-icon">🎫</span>
+        <span class="dash-card-value">12 481</span>
+        <div class="dash-card-label">Réservations</div>
+      </div>
+      <div class="dash-card">
+        <span class="dash-card-icon">👥</span>
+        <span class="dash-card-value">8 320</span>
+        <div class="dash-card-label">Utilisateurs</div>
+      </div>
+      <div class="dash-card">
+        <span class="dash-card-icon">✈</span>
+        <span class="dash-card-value">1 248</span>
+        <div class="dash-card-label">Vols actifs</div>
+      </div>
+    </div>
+
+    <!-- Revenue Chart -->
+    <div class="chart-area">
+      <h3>Revenus mensuels 2025 (€)</h3>
+      <svg viewBox="0 0 860 200" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;">
+        <defs>
+          <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#3BA4FF" stop-opacity="0.3"/>
+            <stop offset="100%" stop-color="#3BA4FF" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <!-- Grid lines -->
+        <line x1="50" y1="20" x2="840" y2="20" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+        <line x1="50" y1="60" x2="840" y2="60" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+        <line x1="50" y1="100" x2="840" y2="100" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+        <line x1="50" y1="140" x2="840" y2="140" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+        <line x1="50" y1="180" x2="840" y2="180" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+        <!-- Y labels -->
+        <text x="40" y="24" fill="#7a9abf" font-size="11" text-anchor="end">100K</text>
+        <text x="40" y="64" fill="#7a9abf" font-size="11" text-anchor="end">80K</text>
+        <text x="40" y="104" fill="#7a9abf" font-size="11" text-anchor="end">60K</text>
+        <text x="40" y="144" fill="#7a9abf" font-size="11" text-anchor="end">40K</text>
+        <text x="40" y="184" fill="#7a9abf" font-size="11" text-anchor="end">20K</text>
+        <!-- Area -->
+        <path d="M90,140 L160,120 L230,130 L300,100 L370,80 L440,60 L510,70 L580,40 L650,55 L720,30 L790,20 L790,180 L90,180 Z"
+              fill="url(#chartGrad)"/>
+        <!-- Line -->
+        <path d="M90,140 L160,120 L230,130 L300,100 L370,80 L440,60 L510,70 L580,40 L650,55 L720,30 L790,20"
+              fill="none" stroke="#3BA4FF" stroke-width="2.5" stroke-linejoin="round"/>
+        <!-- Dots -->
+        <circle cx="90" cy="140" r="4" fill="#3BA4FF"/>
+        <circle cx="160" cy="120" r="4" fill="#3BA4FF"/>
+        <circle cx="230" cy="130" r="4" fill="#3BA4FF"/>
+        <circle cx="300" cy="100" r="4" fill="#3BA4FF"/>
+        <circle cx="370" cy="80" r="4" fill="#3BA4FF"/>
+        <circle cx="440" cy="60" r="4" fill="#3BA4FF"/>
+        <circle cx="510" cy="70" r="4" fill="#3BA4FF"/>
+        <circle cx="580" cy="40" r="4" fill="#D6B25E"/>
+        <circle cx="650" cy="55" r="4" fill="#D6B25E"/>
+        <circle cx="720" cy="30" r="4" fill="#D6B25E"/>
+        <circle cx="790" cy="20" r="4" fill="#10B981"/>
+        <!-- X labels -->
+        <text x="90" y="198" fill="#7a9abf" font-size="11" text-anchor="middle">Jan</text>
+        <text x="160" y="198" fill="#7a9abf" font-size="11" text-anchor="middle">Fév</text>
+        <text x="230" y="198" fill="#7a9abf" font-size="11" text-anchor="middle">Mar</text>
+        <text x="300" y="198" fill="#7a9abf" font-size="11" text-anchor="middle">Avr</text>
+        <text x="370" y="198" fill="#7a9abf" font-size="11" text-anchor="middle">Mai</text>
+        <text x="440" y="198" fill="#7a9abf" font-size="11" text-anchor="middle">Jun</text>
+        <text x="510" y="198" fill="#7a9abf" font-size="11" text-anchor="middle">Jul</text>
+        <text x="580" y="198" fill="#7a9abf" font-size="11" text-anchor="middle">Aoû</text>
+        <text x="650" y="198" fill="#7a9abf" font-size="11" text-anchor="middle">Sep</text>
+        <text x="720" y="198" fill="#7a9abf" font-size="11" text-anchor="middle">Oct</text>
+        <text x="790" y="198" fill="#7a9abf" font-size="11" text-anchor="middle">Nov</text>
+      </svg>
+    </div>
+
+    <!-- Flights Management Table -->
+    <div class="bookings-table-wrap">
+      <div class="table-header-bar">
+        <h3>Gestion des vols</h3>
+        <div style="display:flex;gap:8px;">
+          <input type="text" placeholder="Rechercher..." style="background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.85rem;outline:none;width:180px;">
+          <button class="btn btn-primary" style="font-size:0.85rem;padding:8px 16px;" onclick="showToast('✈ Nouveau vol ajouté !')">+ Ajouter</button>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>N° Vol</th>
+            <th>Trajet</th>
+            <th>Départ</th>
+            <th>Arrivée</th>
+            <th>Compagnie</th>
+            <th>Sièges libres</th>
+            <th>Statut</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="color:var(--primary);font-weight:600;">MD 042</td>
+            <td>TNR → CDG</td>
+            <td>08:30</td>
+            <td>21:50</td>
+            <td>Air Madagascar</td>
+            <td><span style="color:var(--error);">4 / 280</span></td>
+            <td><span class="badge badge-success">Actif</span></td>
+            <td style="display:flex;gap:6px;"><button class="btn btn-ghost" style="padding:5px 10px;font-size:0.75rem;" onclick="showToast('✏ Modification en cours...')">✏</button><button class="btn btn-ghost" style="padding:5px 10px;font-size:0.75rem;color:var(--error);" onclick="showToast('🗑 Vol supprimé')">🗑</button></td>
+          </tr>
+          <tr>
+            <td style="color:var(--primary);font-weight:600;">AF 844</td>
+            <td>CDG → TNR</td>
+            <td>22:15</td>
+            <td>14:30+1</td>
+            <td>Air France</td>
+            <td><span style="color:var(--success);">142 / 350</span></td>
+            <td><span class="badge badge-success">Actif</span></td>
+            <td style="display:flex;gap:6px;"><button class="btn btn-ghost" style="padding:5px 10px;font-size:0.75rem;">✏</button><button class="btn btn-ghost" style="padding:5px 10px;font-size:0.75rem;color:var(--error);">🗑</button></td>
+          </tr>
+          <tr>
+            <td style="color:var(--primary);font-weight:600;">TK 072</td>
+            <td>IST → TNR</td>
+            <td>14:00</td>
+            <td>02:40+1</td>
+            <td>Turkish Airlines</td>
+            <td><span style="color:var(--success);">89 / 300</span></td>
+            <td><span class="badge badge-pending">En attente</span></td>
+            <td style="display:flex;gap:6px;"><button class="btn btn-ghost" style="padding:5px 10px;font-size:0.75rem;">✏</button><button class="btn btn-ghost" style="padding:5px 10px;font-size:0.75rem;color:var(--error);">🗑</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════ AUTH MODAL ═══════════════════════════════════ -->
+<div class="modal-overlay" id="authModal" onclick="closeAuthIfOutside(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeAuth()">✕</button>
+    <div class="auth-logo">✦ MANIDINA</div>
+    <p class="auth-subtitle" id="authSubtitle">Connectez-vous à votre compte</p>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="loginTab" onclick="switchAuth('login')">Connexion</button>
+      <button class="auth-tab" id="registerTab" onclick="switchAuth('register')">Inscription</button>
+    </div>
+
+    <!-- Login Form -->
+    <div id="loginForm" class="auth-form">
+      <div class="form-group"><label>Email</label><input type="email" placeholder="vous@email.com" value="marie.rakoto@email.mg"></div>
+      <div class="form-group"><label>Mot de passe</label><input type="password" placeholder="••••••••" value="password123"></div>
+      <a href="#" style="font-size:0.82rem;color:var(--primary);text-align:right;display:block;margin-top:-8px;">Mot de passe oublié ?</a>
+      <button class="btn btn-primary" style="padding:13px;" onclick="handleLogin()">Connexion →</button>
+      <div class="divider">ou</div>
+      <button class="social-btn" onclick="showToast('🔗 Connexion Google...')">🔍 Continuer avec Google</button>
+    </div>
+
+    <!-- Register Form -->
+    <div id="registerForm" class="auth-form" style="display:none;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-group"><label>Prénom</label><input type="text" placeholder="Marie"></div>
+        <div class="form-group"><label>Nom</label><input type="text" placeholder="RAKOTO"></div>
+      </div>
+      <div class="form-group"><label>Email</label><input type="email" placeholder="vous@email.com"></div>
+      <div class="form-group"><label>Téléphone (optionnel)</label><input type="tel" placeholder="+261 34 00 000 00"></div>
+      <div class="form-group"><label>Mot de passe (min 8 car.)</label><input type="password" placeholder="••••••••"></div>
+      <div class="form-group"><label>Confirmation</label><input type="password" placeholder="••••••••"></div>
+      <button class="btn btn-primary" style="padding:13px;" onclick="handleRegister()">Créer mon compte →</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <span id="toastMsg">✓ Action réussie</span>
+</div>
+
+<script>
+// ─── AIRPORTS DATA ───
+const AIRPORTS = [
+  // Madagascar
+  { code:'TNR', city:'Antananarivo', airport:'Ivato International', flag:'🇲🇬', country:'Madagascar' },
+  { code:'NOS', city:'Nosy Be', airport:'Fascene International', flag:'🇲🇬', country:'Madagascar' },
+  { code:'TMM', city:'Toamasina', airport:'Aéroport de Toamasina', flag:'🇲🇬', country:'Madagascar' },
+  { code:'MJN', city:'Mahajanga', airport:'Aéroport Amborovy', flag:'🇲🇬', country:'Madagascar' },
+  { code:'TLE', city:'Toliara', airport:'Aéroport de Toliara', flag:'🇲🇬', country:'Madagascar' },
+  { code:'FTU', city:'Tolagnaro', airport:'Aéroport de Tolagnaro', flag:'🇲🇬', country:'Madagascar' },
+  { code:'DIE', city:'Antsiranana', airport:'Aéroport Arrachart', flag:'🇲🇬', country:'Madagascar' },
+  { code:'SMS', city:'Sainte-Marie', airport:'Aéroport de Sainte-Marie', flag:'🇲🇬', country:'Madagascar' },
+  { code:'SVB', city:'Sambava', airport:'Aéroport de Sambava', flag:'🇲🇬', country:'Madagascar' },
+  { code:'MOQ', city:'Morondava', airport:'Aéroport de Morondava', flag:'🇲🇬', country:'Madagascar' },
+  // International
+  { code:'CDG', city:'Paris', airport:'Charles de Gaulle', flag:'🇫🇷', country:'France' },
+  { code:'ORY', city:'Paris Orly', airport:'Aéroport d\'Orly', flag:'🇫🇷', country:'France' },
+  { code:'RUN', city:'La Réunion', airport:'Roland Garros', flag:'🇷🇪', country:'La Réunion' },
+  { code:'MRU', city:'Maurice', airport:'Sir Seewoosagur Ramgoolam', flag:'🇲🇺', country:'Île Maurice' },
+  { code:'NBO', city:'Nairobi', airport:'Jomo Kenyatta', flag:'🇰🇪', country:'Kenya' },
+  { code:'ADD', city:'Addis-Abeba', airport:'Bole International', flag:'🇪🇹', country:'Éthiopie' },
+  { code:'IST', city:'Istanbul', airport:'Istanbul Airport', flag:'🇹🇷', country:'Turquie' },
+  { code:'DXB', city:'Dubaï', airport:'Dubai International', flag:'🇦🇪', country:'Émirats Arabes Unis' },
+  { code:'MXP', city:'Milan', airport:'Malpensa', flag:'🇮🇹', country:'Italie' },
+  { code:'YVA', city:'Mayotte', airport:'Dzaoudzi-Pamandzi', flag:'🇾🇹', country:'Mayotte' },
+];
+
+// ─── CURRENCY ───
+let currentCurrency = 'MGA';
+// Rates (1 MGA = x devise)
+const RATES = { MGA: 1, EUR: 1/5000, USD: 1/4500 };
+const SYMBOLS = { MGA: 'Ar', EUR: '€', USD: '$' };
+const LABELS = { MGA: 'Ar', EUR: '€ EUR', USD: '$ USD' };
+
+function fmtPrice(mga) {
+  const val = mga * RATES[currentCurrency];
+  const sym = SYMBOLS[currentCurrency];
+  if (currentCurrency === 'MGA') return sym + ' ' + Math.round(val).toLocaleString('fr-FR');
+  return sym + ' ' + val.toFixed(2).replace('.', ',');
+}
+
+function setCurrency(c) {
+  currentCurrency = c;
+  ['MGA','EUR','USD'].forEach(k => {
+    document.getElementById('btn'+k).classList.toggle('active', k === c);
+  });
+  // Update all dynamic prices
+  document.querySelectorAll('.price-amount[data-mga]').forEach(el => {
+    const mga = parseInt(el.dataset.mga);
+    el.textContent = fmtPrice(mga);
+  });
+  document.querySelectorAll('.price-dyn[data-mga]').forEach(el => {
+    const mga = parseInt(el.dataset.mga);
+    const prefix = el.textContent.startsWith('+') ? '+ ' : '';
+    el.textContent = prefix + fmtPrice(mga);
+  });
+  // Update filter label & slider
+  document.getElementById('currencyLabel').textContent = SYMBOLS[c];
+  updateBudgetSlider();
+  // Update booking summaries
+  updateBookingSummaries();
+  showToast('💱 Devise changée : ' + SYMBOLS[c]);
+}
+
+function updateBudgetSlider() {
+  const mga = parseInt(document.getElementById('priceRange').value);
+  document.getElementById('priceVal').textContent = fmtPrice(mga);
+  const minMga = 500000;
+  document.getElementById('priceMin').textContent = fmtPrice(minMga);
+}
+
+// booking state
+let bookingFlight = { route:'TNR → CDG', priceMga: 3430000, taxMga: 490000 };
+
+function updateBookingSummaries() {
+  const p = bookingFlight.priceMga;
+  const t = bookingFlight.taxMga;
+  const bag = 225000;
+  const total1 = p + t;
+  const total2 = p + t + bag;
+
+  const lbl = 'Vol ' + bookingFlight.route;
+  ['bookingRouteLbl','bookingRouteLbl2','bookingRouteLbl3'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = lbl;
+  });
+  if (document.getElementById('bookingPrice1')) document.getElementById('bookingPrice1').textContent = fmtPrice(p);
+  if (document.getElementById('bookingTax1')) document.getElementById('bookingTax1').textContent = fmtPrice(t);
+  if (document.getElementById('totalAmount')) document.getElementById('totalAmount').textContent = fmtPrice(total1);
+  if (document.getElementById('bookingPrice2')) document.getElementById('bookingPrice2').textContent = fmtPrice(p);
+  if (document.getElementById('bookingTax2')) document.getElementById('bookingTax2').textContent = fmtPrice(t);
+  if (document.getElementById('bookingTotal2')) document.getElementById('bookingTotal2').textContent = fmtPrice(total2);
+  if (document.getElementById('bookingPrice3')) document.getElementById('bookingPrice3').textContent = fmtPrice(p);
+  if (document.getElementById('bookingTax3')) document.getElementById('bookingTax3').textContent = fmtPrice(t);
+  if (document.getElementById('bookingTotal3')) document.getElementById('bookingTotal3').textContent = fmtPrice(total2);
+  if (document.getElementById('payBtnAmount')) document.getElementById('payBtnAmount').textContent = fmtPrice(total2);
+
+  // Update all price-dyn
+  document.querySelectorAll('.price-dyn[data-mga]').forEach(el => {
+    const mga = parseInt(el.dataset.mga);
+    const isExtra = el.closest('.extra-opt') !== null;
+    el.textContent = (isExtra ? '+ ' : '') + fmtPrice(mga);
+  });
+}
+
+// ─── AUTOCOMPLETE ───
+function showAC(inputId, dropId) {
+  const input = document.getElementById(inputId);
+  const drop = document.getElementById(dropId);
+  const q = input.value.toLowerCase();
+  if (q.length < 1) { drop.classList.remove('open'); return; }
+  const filtered = AIRPORTS.filter(a =>
+    a.city.toLowerCase().includes(q) ||
+    a.code.toLowerCase().includes(q) ||
+    a.airport.toLowerCase().includes(q) ||
+    a.country.toLowerCase().includes(q)
+  ).slice(0, 8);
+
+  if (!filtered.length) { drop.classList.remove('open'); return; }
+  drop.innerHTML = filtered.map(a => `
+    <div class="ac-item" onclick="selectAC('${inputId}','${dropId}','${a.city} (${a.code})')">
+      <span class="ac-flag">${a.flag}</span>
+      <span class="ac-code">${a.code}</span>
+      <div class="ac-info">
+        <div class="ac-city">${a.city}</div>
+        <div class="ac-airport">${a.airport} · ${a.country}</div>
+      </div>
+    </div>
+  `).join('');
+  drop.classList.add('open');
+}
+
+function selectAC(inputId, dropId, val) {
+  document.getElementById(inputId).value = val;
+  document.getElementById(dropId).classList.remove('open');
+}
+
+// Close dropdowns on outside click
+document.addEventListener('click', e => {
+  if (!e.target.closest('.form-group')) {
+    document.querySelectorAll('.ac-dropdown').forEach(d => d.classList.remove('open'));
+  }
+});
+
+// ─── FILL SEARCH FROM DEST CARD ───
+function fillSearch(from, to) {
+  document.getElementById('dep').value = from;
+  document.getElementById('dest').value = to || '';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (!to) {
+    setTimeout(() => document.getElementById('dest').focus(), 500);
+  }
+  showToast('🛫 Départ: ' + from);
+}
+
+// ─── NAVIGATION ───
+function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+  const nav = document.getElementById('nav-' + page);
+  if (nav) nav.classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+// ─── SEARCH ───
+function searchFlights() {
+  const dep = document.getElementById('dep').value || 'Antananarivo (TNR)';
+  const dest = document.getElementById('dest').value || 'Paris CDG (CDG)';
+  const date = document.getElementById('dateD').value || '2025-09-15';
+  document.getElementById('results-subtitle').textContent = dep + ' → ' + dest + ' · ' + date + ' · 1 passager';
+  showPage('results');
+  showToast('🔍 Vols trouvés pour ' + dep + ' → ' + dest);
+}
+
+function setTab(el, type) {
+  document.querySelectorAll('.search-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ─── SORT CHIPS ───
+function activateChip(el) {
+  document.querySelectorAll('.sort-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ─── BOOKING ───
+function goToBooking(dep, dest, airline, flightNum, depTime, arrTime, duration, stops, aircraft, priceMga, isPremium) {
+  // Store booking flight data
+  if (dep) {
+    bookingFlight = {
+      route: dep + ' → ' + dest,
+      priceMga: priceMga,
+      taxMga: Math.round(priceMga * 0.14),
+      airline: airline,
+      flightNum: flightNum,
+      depTime: depTime,
+      arrTime: arrTime,
+      duration: duration,
+      stops: stops,
+      aircraft: aircraft
+    };
+    // Update booking page subtitle
+    document.querySelector('#page-booking .page-subtitle').textContent =
+      airline + ' · ' + dep + ' → ' + dest + ' · 15 Sept 2025';
+  }
+  updateBookingSummaries();
+  showPage('booking');
+  resetSteps(1);
+}
+
+function nextStep(n) {
+  for (let i = 1; i <= 4; i++) {
+    const el = document.getElementById('bookingStep' + i);
+    if (el) el.style.display = i === n ? 'block' : 'none';
+  }
+  for (let i = 1; i <= 4; i++) {
+    const s = document.getElementById('step' + i);
+    if (s) {
+      s.classList.remove('active', 'done');
+      if (i < n) s.classList.add('done');
+      if (i === n) s.classList.add('active');
+    }
+  }
+  updateBookingSummaries();
+  window.scrollTo(0, 0);
+}
+
+function resetSteps(n) { nextStep(n || 1); }
+
+// ─── SEAT MAP GENERATION ───
+function buildSeatMap() {
+  const occupied = [2,5,8,14,17,22,25,30,33,36,44,51,60,65,70];
+  const premium = [1,2,3,4,5,6,7,8,9,10,11,12];
+  const cols = ['A','B','C','','D','E','F'];
+  let html = '';
+  let seatIdx = 0;
+  for (let row = 1; row <= 12; row++) {
+    html += '<div class="seat-row"><span class="seat-row-num">' + row + '</span>';
+    cols.forEach(col => {
+      if (col === '') {
+        html += '<div class="seat-aisle"></div>';
+      } else {
+        seatIdx++;
+        const isOcc = occupied.includes(seatIdx);
+        const isPrem = premium.includes(seatIdx) && !isOcc;
+        const label = row + col;
+        let cls = isOcc ? 'occupied' : isPrem ? 'premium' : 'available';
+        html += `<div class="seat ${cls}" title="${label}" onclick="selectSeat(this,'${label}')">${isOcc ? '✕' : label}</div>`;
+      }
+    });
+    html += '</div>';
+  }
+  document.getElementById('seatMap').innerHTML = html;
+}
+
+let selectedSeat = null;
+function selectSeat(el, label) {
+  if (el.classList.contains('occupied')) return;
+  if (selectedSeat) selectedSeat.classList.remove('selected');
+  el.classList.add('selected');
+  selectedSeat = el;
+  document.getElementById('selectedSeatLabel').textContent = label;
+  document.getElementById('seatLabel2') && (document.getElementById('seatLabel2').textContent = label);
+  showToast('✅ Siège ' + label + ' sélectionné !');
+}
+
+// ─── EXTRAS ───
+function selectExtra(el) {
+  const siblings = el.closest('.form-card').querySelectorAll('.extra-opt');
+  siblings.forEach(s => {
+    s.style.borderColor = 'var(--border)';
+    s.style.background = 'rgba(255,255,255,0.03)';
+  });
+  el.style.borderColor = 'var(--primary)';
+  el.style.background = 'rgba(59,164,255,0.08)';
+}
+
+// ─── PAYMENT METHOD SWITCH ───
+function selectPayment(el, type) {
+  document.querySelectorAll('.payment-method').forEach(m => m.classList.remove('active'));
+  el.classList.add('active');
+  ['card','mvola','orange','paypal'].forEach(t => {
+    const pf = document.getElementById('payForm-' + t);
+    if (pf) pf.style.display = t === type ? 'block' : 'none';
+  });
+}
+
+function updateCardNum(val) {
+  const clean = val.replace(/\D/g, '').substring(0,16);
+  const formatted = clean.match(/.{1,4}/g)?.join(' ') || clean;
+  const display = formatted.padEnd(19,'•').substring(0,19);
+  const parts = display.split(' ');
+  document.getElementById('cardNum').textContent = (parts[0]||'••••') + ' ' + (parts[1]||'••••') + ' ' + (parts[2]||'••••') + ' ' + (parts[3]||'••••');
+}
+
+function confirmPayment() {
+  const total = fmtPrice(bookingFlight.priceMga + bookingFlight.taxMga + 225000);
+  showToast('🔒 Paiement de ' + total + ' en cours...');
+  setTimeout(() => {
+    showPage('confirm');
+    showToast('🎉 Paiement confirmé ! Billet généré.');
+  }, 1800);
+}
+
+// ─── AUTH ───
+function showAuth(type) {
+  document.getElementById('authModal').classList.add('open');
+  switchAuth(type);
+}
+function closeAuth() { document.getElementById('authModal').classList.remove('open'); }
+function closeAuthIfOutside(e) { if (e.target === document.getElementById('authModal')) closeAuth(); }
+function switchAuth(type) {
+  document.getElementById('loginForm').style.display = type === 'login' ? 'flex' : 'none';
+  document.getElementById('registerForm').style.display = type === 'register' ? 'flex' : 'none';
+  document.getElementById('loginTab').classList.toggle('active', type === 'login');
+  document.getElementById('registerTab').classList.toggle('active', type === 'register');
+  document.getElementById('authSubtitle').textContent = type === 'login' ? 'Connectez-vous à votre compte' : 'Créez votre compte gratuitement';
+}
+function handleLogin() { closeAuth(); showToast('👋 Bienvenue, Marie Rakoto !'); }
+function handleRegister() { closeAuth(); showToast('🎉 Compte créé avec succès !'); }
+
+// ─── TOAST ───
+let toastTimer = null;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  document.getElementById('toastMsg').textContent = msg;
+  t.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+// ─── INIT ───
+window.addEventListener('DOMContentLoaded', () => {
+  buildSeatMap();
+  updateBookingSummaries();
+  updateBudgetSlider();
+});
+</script>
+</body>
+</html>
