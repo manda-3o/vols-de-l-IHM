@@ -974,13 +974,13 @@ function App() {
                 {(popularFlights.length ? popularFlights : POPULAR_ROUTES).map((item) => {
                   const routeLabel = item.route || item.label;
                   return (
-                    <div key={routeLabel} className="dest-card" style={{ cursor: 'default', minHeight: 160 }}>
+                    <div key={routeLabel} className="dest-card" style={{ cursor: 'pointer', minHeight: 160 }} onClick={() => handlePopularReserve(routeLabel)}>
                       <div style={{ fontSize: '1.4rem', marginBottom: 14 }}>{item.icon || '✈️'}</div>
                       <div style={{ fontWeight: 700, marginBottom: 8 }}>{routeLabel}</div>
                       <div style={{ color: 'var(--text-muted)', lineHeight: 1.6 }}>{item.description || item.subtitle || 'Réservez ce trajet en un clic.'}</div>
                       <div style={{ marginTop: 16, display: 'grid', gap: 8 }}>
                         {item.priceMga ? <span style={{ fontSize: '0.9rem', color: 'var(--text)' }}>À partir de {formatPrice(item.priceMga, currency)}</span> : null}
-                        <button className="btn btn-ghost" style={{ padding: '10px 16px' }} onClick={() => handlePopularReserve(routeLabel)}>Réserver</button>
+                        <button type="button" className="btn btn-ghost" style={{ padding: '10px 16px' }} onClick={(e) => { e.stopPropagation(); handlePopularReserve(routeLabel); }}>Réserver</button>
                       </div>
                     </div>
                   );
