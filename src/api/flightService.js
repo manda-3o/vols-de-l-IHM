@@ -62,4 +62,13 @@ export const flightService = {
       ];
     }
   },
+
+  getPopularFlights: async () => {
+    try {
+      return await apiCall('/flights/popular');
+    } catch (error) {
+      console.error('Error fetching popular flights:', error);
+      return [];
+    }
+  },
 };

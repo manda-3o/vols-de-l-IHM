@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { flightService } from './api/flightService';
 import { bookingService } from './api/bookingService';
+import { supportService } from './api/supportService';
 
 const AIRPORTS = [
   { code: 'TNR', city: 'Antananarivo', airport: 'Ivato International', flag: '🇲🇬', country: 'Madagascar' },
@@ -223,9 +224,24 @@ const DESTINATIONS = [
   },
 ];
 
+const POPULAR_ROUTES = [
+  { icon: '🌍', label: 'Antananarivo → Paris', route: 'TNR → CDG', description: 'Vol international fréquemment réservé' },
+  { icon: '🏝', label: 'Antananarivo → Nosy Be', route: 'TNR → NOS', description: 'Escapade plage rapide' },
+  { icon: '🚤', label: 'Antananarivo → Toamasina', route: 'TNR → TMM', description: 'Voyage commerce & nature' },
+  { icon: '🏖', label: 'Antananarivo → Mahajanga', route: 'TNR → MJN', description: 'Destination balnéaire populaire' },
+];
+
 const RATES = { MGA: 1, EUR: 1 / 5000, USD: 1 / 4500 };
 const SYMBOLS = { MGA: 'Ar', EUR: '€', USD: '$' };
 const CURRENCIES = ['MGA', 'EUR', 'USD'];
+
+const formatInputDate = (date) => date.toISOString().split('T')[0];
+const TODAY_DATE = formatInputDate(new Date());
+const TOMORROW_DATE = (() => {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return formatInputDate(d);
+})();
 
 const SEAT_COLUMNS = ['A', 'B', 'C', '', 'D', 'E', 'F'];
 const OCCUPIED_SEATS = new Set([2, 5, 8, 14, 17, 22, 25, 30, 33, 36, 44, 51, 60, 65, 70]);
@@ -253,16 +269,16 @@ function formatCardNumber(value) {
 function App() {
   const [page, setPage] = useState('home');
   const [currency, setCurrency] = useState('MGA');
-  const [theme, setTheme] = useState('dark');
+  const [theme, setTheme] = useState('light');
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState('login');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [searchTab, setSearchTab] = useState('aller');
   const [searchDep, setSearchDep] = useState('Antananarivo (TNR)');
   const [searchDest, setSearchDest] = useState('Paris CDG (CDG)');
-  const [searchDate, setSearchDate] = useState('2025-09-15');
-  const [searchReturnDate, setSearchReturnDate] = useState('2025-09-22');
-  const [searchDestinations, setSearchDestinations] = useState([{ dep: 'Antananarivo (TNR)', dest: 'Paris CDG (CDG)', date: '2025-09-15' }]);
+  const [searchDate, setSearchDate] = useState(TODAY_DATE);
+  const [searchReturnDate, setSearchReturnDate] = useState(TOMORROW_DATE);
+  const [searchDestinations, setSearchDestinations] = useState([{ dep: 'Antananarivo (TNR)', dest: 'Paris CDG (CDG)', date: TODAY_DATE }]);
   const [searchClass, setSearchClass] = useState('1 adulte — Économique');
   const [showACDep, setShowACDep] = useState(false);
   const [showACDest, setShowACDest] = useState(false);
@@ -283,8 +299,28 @@ function App() {
   const [newFlight, setNewFlight] = useState({ code: '', route: '', depTime: '', arrTime: '', price: '', seats: '' });
   const [toast, setToast] = useState({ msg: '✓ Action réussie', visible: false });
   const [flights, setFlights] = useState([]);
+  const [popularFlights, setPopularFlights] = useState([]);
   const [flightsLoading, setFlightsLoading] = useState(false);
   const [flightsError, setFlightsError] = useState(null);
+  const [flightFilters, setFlightFilters] = useState({
+    direct: true,
+    oneStop: true,
+    multiStop: true,
+    airlines: {
+      'Air Madagascar': true,
+      'Air France': true,
+      'Ethiopian Airlines': true,
+      'Turkish Airlines': true,
+      'Emirates': true,
+    },
+    classes: {
+      Économique: true,
+      Affaires: true,
+      Premium: true,
+    },
+    depEndHour: 24,
+  });
+  const [helpForm, setHelpForm] = useState({ email: '', subject: '', message: '' });
   const toastTimer = useRef(null);
   const depRef = useRef(null);
   const destRef = useRef(null);
@@ -323,13 +359,13 @@ function App() {
         const data = await flightService.getFlights();
         const flightsWithUI = data.map(flight => ({
           ...flight,
-          airline: 'Air Madagascar',
-          displayLogo: 'AIR\nMDG',
+          airline: flight.airline || 'Air Madagascar',
+          displayLogo: flight.displayLogo || 'AIR\nMDG',
           className: flight.className || 'Économique',
           route: flight.route || `${flight.dep} → ${flight.arr}`,
           priceMga: flight.price || flight.priceMga,
           premium: flight.premium || false,
-          seats: '✓ Plusieurs places',
+          seats: flight.seats || '✓ Plusieurs places',
           duration: flight.duration || '13h',
           stops: flight.stops || 'Direct',
         }));
@@ -375,34 +411,95 @@ function App() {
 
   const depSuggestions = useMemo(() => {
     const q = searchDep.toLowerCase();
-    return q.length < 1
-      ? []
-      : AIRPORTS.filter(
-          (a) =>
-            a.city.toLowerCase().includes(q) ||
-            a.code.toLowerCase().includes(q) ||
-            a.airport.toLowerCase().includes(q) ||
-            a.country.toLowerCase().includes(q)
-        ).slice(0, 8);
+    return AIRPORTS.filter(
+      (a) =>
+        !q ||
+        a.city.toLowerCase().includes(q) ||
+        a.code.toLowerCase().includes(q) ||
+        a.airport.toLowerCase().includes(q) ||
+        a.country.toLowerCase().includes(q)
+    ).slice(0, 8);
   }, [searchDep]);
 
   const destSuggestions = useMemo(() => {
     const q = searchDest.toLowerCase();
-    return q.length < 1
-      ? []
-      : AIRPORTS.filter(
-          (a) =>
-            a.city.toLowerCase().includes(q) ||
-            a.code.toLowerCase().includes(q) ||
-            a.airport.toLowerCase().includes(q) ||
-            a.country.toLowerCase().includes(q)
-        ).slice(0, 8);
+    return AIRPORTS.filter(
+      (a) =>
+        !q ||
+        a.city.toLowerCase().includes(q) ||
+        a.code.toLowerCase().includes(q) ||
+        a.airport.toLowerCase().includes(q) ||
+        a.country.toLowerCase().includes(q)
+    ).slice(0, 8);
   }, [searchDest]);
+
+  const clampToToday = (value) => (value < TODAY_DATE ? TODAY_DATE : value);
+  const handleSearchDateChange = (value) => {
+    const nextValue = clampToToday(value);
+    setSearchDate(nextValue);
+    if (searchReturnDate < nextValue) {
+      setSearchReturnDate(nextValue);
+    }
+  };
+
+  const handleSearchReturnDateChange = (value) => {
+    const nextValue = value < searchDate ? searchDate : value;
+    setSearchReturnDate(nextValue);
+  };
 
   const selectedExtraAmount = selectedExtra === 'soute' ? 225000 : selectedExtra === 'repas' ? 90000 : 0;
   const bookingTotalStep1 = bookingFlight.priceMga + bookingFlight.taxMga;
   const bookingTotalAll = bookingTotalStep1 + selectedExtraAmount;
   const priceLabel = `${SYMBOLS[currency]}`;
+
+  const airlineRatings = {
+    'Air Madagascar': 4.9,
+    'Air France': 4.7,
+    'Ethiopian Airlines': 4.5,
+    'Turkish Airlines': 4.6,
+    'Emirates': 4.8,
+  };
+
+  const parseDuration = (duration) => {
+    const parts = duration.match(/(\d+)h\s*(\d+)?/);
+    if (!parts) return 0;
+    return Number(parts[1]) * 60 + Number(parts[2] || 0);
+  };
+
+  const filteredFlights = useMemo(() => {
+    const base = flights.filter((flight) => {
+      const price = flight.priceMga || flight.price || 0;
+      if (price > priceRange) return false;
+      const stops = flight.stops?.toLowerCase() || '';
+      if (!flightFilters.direct && stops.includes('direct')) return false;
+      if (!flightFilters.oneStop && stops.includes('1 escale')) return false;
+      if (!flightFilters.multiStop && (stops.includes('2 escale') || stops.includes('escales') || stops.includes('+'))) return false;
+      if (!flightFilters.airlines[flight.airline]) return false;
+      if (!flightFilters.classes[flight.className]) return false;
+      const hour = Number(flight.depTime?.split(':')[0] || 0);
+      if (hour > flightFilters.depEndHour) return false;
+      return true;
+    });
+
+    return base.sort((a, b) => {
+      if (selectedSort === 'Prix ↑') {
+        return (a.priceMga || a.price || 0) - (b.priceMga || b.price || 0);
+      }
+      if (selectedSort === 'Durée ↑') {
+        return parseDuration(a.duration) - parseDuration(b.duration);
+      }
+      if (selectedSort === 'Rapidité') {
+        const aPriority = a.stops?.includes('Direct') ? 0 : 1;
+        const bPriority = b.stops?.includes('Direct') ? 0 : 1;
+        if (aPriority !== bPriority) return aPriority - bPriority;
+        return parseDuration(a.duration) - parseDuration(b.duration);
+      }
+      if (selectedSort === 'Note compagnie') {
+        return (airlineRatings[b.airline] || 0) - (airlineRatings[a.airline] || 0);
+      }
+      return 0;
+    });
+  }, [flights, priceRange, selectedSort, flightFilters]);
 
   const showToast = (msg) => {
     setToast({ msg, visible: true });
@@ -414,8 +511,50 @@ function App() {
   };
 
   const handleSearch = () => {
+    if (searchDate < TODAY_DATE) {
+      setSearchDate(TODAY_DATE);
+      showToast('⚠️ La date de départ ne peut pas être antérieure à aujourd\'hui.');
+      return;
+    }
+    if (searchTab === 'retour' && searchReturnDate < searchDate) {
+      setSearchReturnDate(searchDate);
+      showToast('⚠️ La date de retour doit être égale ou postérieure au départ.');
+      return;
+    }
     setPage('results');
     showToast('🔍 Vols trouvés pour ' + searchDep + ' → ' + searchDest);
+  };
+
+  const handlePopularReserve = (routeLabel) => {
+    const flight = popularFlights.find((f) => f.route === routeLabel) || flights.find((f) => f.route === routeLabel) || FLIGHTS.find((f) => f.route === routeLabel) || flights[0];
+    if (flight) {
+      handleFlightSelect(flight);
+    } else {
+      setPage('results');
+    }
+    setSearchDep('Antananarivo (TNR)');
+    setSearchDest(routeLabel.split(' → ')[1] + ' (TBD)');
+    showToast('✈ Réservation rapide vers ' + routeLabel);
+  };
+
+  const handleHelpSubmit = async () => {
+    if (!helpForm.email || !helpForm.subject || !helpForm.message) {
+      showToast('⚠️ Merci de remplir tous les champs du formulaire.');
+      return;
+    }
+    if (!helpForm.email.includes('@')) {
+      showToast('❌ Email invalide.');
+      return;
+    }
+
+    try {
+      await supportService.submitHelp(helpForm);
+      setHelpForm({ email: '', subject: '', message: '' });
+      showToast('✅ Votre demande a bien été envoyée au support.');
+    } catch (error) {
+      console.error('Support submit error:', error);
+      showToast('❌ Erreur en envoyant le formulaire. Réessayez plus tard.');
+    }
   };
 
   const handleFillSearch = (from, to = '') => {
@@ -449,6 +588,12 @@ function App() {
     showToast(type === 'login' ? '👋 Bienvenue, Marie Rakoto !' : '🎉 Compte créé avec succès !');
   };
 
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setPage('home');
+    showToast('👋 Vous êtes déconnecté. À bientôt !');
+  };
+
   const handleAdminLogin = () => {
     if (adminEmail === 'mandazo@gmail.com' && adminPassword === '18471844') {
       setIsAdmin(true);
@@ -472,23 +617,34 @@ function App() {
   };
 
   const handleConfirmPayment = async () => {
+    if (paymentMethod === 'card') {
+      const digits = cardNumber.replace(/\D/g, '');
+      if (digits.length < 16) {
+        showToast('❌ Numéro de carte invalide.');
+        return;
+      }
+      if (!cardHolder.trim()) {
+        showToast('❌ Nom du titulaire manquant.');
+        return;
+      }
+    }
+
     showToast('🔒 Paiement de ' + formatPrice(bookingTotalAll, currency) + ' en cours...');
     try {
-      // Create booking via API
       const bookingData = {
-        userId: 1, // Demo user ID (Marie Rakoto)
-        flightId: bookingFlight.id || 1, // Flight ID from selected flight
+        userId: 1,
+        flightId: bookingFlight.id || 1,
         seat: selectedSeat || '12A',
       };
       await bookingService.createBooking(bookingData);
       
       setTimeout(() => {
-        setPage('confirm');
+        setPage('ticket');
         showToast('🎉 Paiement confirmé ! Billet généré.');
       }, 1800);
     } catch (error) {
       console.error('Payment error:', error);
-      showToast('❌ Erreur lors du paiement. Veuillez réessayer.');
+      showToast('❌ Erreur lors du paiement. Veuillez vérifier vos informations et réessayer.');
     }
   };
 
@@ -529,15 +685,18 @@ function App() {
   };
 
   const navPages = [
-    { id: 'home', label: 'Accueil' },
-    { id: 'results', label: 'Vols' },
-    { id: 'booking', label: 'Réservation' },
-    { id: 'dashboard', label: 'Mon Espace' },
-    { id: 'admin', label: 'Admin' },
+    { id: 'home', label: 'Accueil', icon: '🏠' },
+    { id: 'results', label: 'Vols', icon: '✈️' },
+    { id: 'ticket', label: 'Mon billet', icon: '🎫' },
+    { id: 'help', label: 'Aide', icon: '❓' },
+    { id: 'dashboard', label: 'Mon Espace', icon: '👤' },
   ];
 
   return (
     <div className="app-shell">
+      <div className="background-plane">
+        <div className="background-plane-icon">✈️</div>
+      </div>
       {!isAuthenticated && page !== 'admin' ? (
         <div className="modal-overlay open" id="authModal" onClick={(e) => e.target === e.currentTarget && setAuthOpen(false)}>
           <div className="modal">
@@ -556,7 +715,14 @@ function App() {
                 <a href="#" style={{ fontSize: '0.82rem', color: 'var(--primary)', textAlign: 'right', display: 'block', marginTop: '-8px' }}>Mot de passe oublié ?</a>
                 <button className="btn btn-primary" style={{ padding: 13 }} onClick={() => handleAuthSubmit('login')}>Connexion →</button>
                 <div className="divider">ou</div>
-                <button className="social-btn" onClick={() => showToast('🔗 Connexion Google...')}>🔍 Continuer avec Google</button>
+                <div className="social-sync">
+                  <div className="social-sync-label">Synchronisation de compte</div>
+                  <div className="social-buttons">
+                    <button type="button" className="social-btn" onClick={() => showToast('🔗 Connexion Google...')}>🔍 Google</button>
+                    <button type="button" className="social-btn" onClick={() => showToast('🔗 Connexion Facebook...')}>📘 Facebook</button>
+                    <button type="button" className="social-btn" onClick={() => showToast('🔗 Connexion Apple...')}>🍎 Apple</button>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="auth-form" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -569,6 +735,14 @@ function App() {
                 <div className="form-group"><label>Mot de passe (min 8 car.)</label><input type="password" placeholder="••••••••" /></div>
                 <div className="form-group"><label>Confirmation</label><input type="password" placeholder="••••••••" /></div>
                 <button className="btn btn-primary" style={{ padding: 13 }} onClick={() => handleAuthSubmit('register')}>Créer mon compte →</button>
+                <div className="social-sync">
+                  <div className="social-sync-label">Synchronisation de compte</div>
+                  <div className="social-buttons">
+                    <button type="button" className="social-btn" onClick={() => showToast('🔗 Inscription Google...')}>🔍 Google</button>
+                    <button type="button" className="social-btn" onClick={() => showToast('🔗 Inscription Facebook...')}>📘 Facebook</button>
+                    <button type="button" className="social-btn" onClick={() => showToast('🔗 Inscription Apple...')}>🍎 Apple</button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -580,7 +754,7 @@ function App() {
             <ul className="nav-links">
               {navPages.map((item) => (
                 <li key={item.id}>
-                  <button className={page === item.id ? 'active' : ''} onClick={() => setPage(item.id)}>{item.label}</button>
+                  <button className={page === item.id ? 'active' : ''} onClick={() => setPage(item.id)}>{item.icon} {item.label}</button>
                 </li>
               ))}
             </ul>
@@ -599,8 +773,7 @@ function App() {
                   </button>
                 ))}
               </div>
-              <button className="btn btn-ghost" onClick={() => handleAuth('login')}>Connexion</button>
-              <button className="btn btn-primary" onClick={() => handleAuth('register')}>S'inscrire</button>
+              <button className="btn btn-ghost" title="Se déconnecter" onClick={handleLogout}>🚪</button>
             </div>
           </nav>
 
@@ -610,6 +783,50 @@ function App() {
             <div className="hero-badge">✦ Plateforme de réservation aérienne</div>
             <h1>Volez vers l'<span className="accent">inconnu</span>,<br />avec <span className="gold">style</span>.</h1>
             <p className="hero-sub">Réservez vos billets en quelques secondes. Sièges, suppléments, paiement sécurisé — tout en un seul endroit.</p>
+
+            <div className="hero-visual">
+              <div className="hero-visual-card">
+                <div className="hero-badge small">Classe affaires</div>
+                <div className="flight-hero-plane">
+                  <div className="wing wing-left" />
+                  <div className="wing wing-right" />
+                  <div className="fuselage" />
+                  <div className="tail" />
+                  <div className="engine engine-left" />
+                  <div className="engine engine-right" />
+                </div>
+                <div className="hero-route-row">
+                  <div>
+                    <div className="hero-route-label">TNR</div>
+                    <div className="hero-route-city">Antananarivo</div>
+                  </div>
+                  <div className="hero-route-line">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                  <div>
+                    <div className="hero-route-label">CDG</div>
+                    <div className="hero-route-city">Paris</div>
+                  </div>
+                </div>
+                <div className="hero-flight-meta">
+                  <div>
+                    <strong>15h 45min</strong>
+                    <small>Escales optimisées</small>
+                  </div>
+                  <div>
+                    <strong>Airbus A350</strong>
+                    <small>Cabine premium</small>
+                  </div>
+                  <div>
+                    <strong>4.9 / 5</strong>
+                    <small>Note passagers</small>
+                  </div>
+                </div>
+                <div className="flight-path" />
+              </div>
+            </div>
 
             <div className="search-box">
               <div className="search-tabs">
@@ -685,14 +902,24 @@ function App() {
                 {/* Date départ */}
                 <div className="form-group">
                   <label>Date départ</label>
-                  <input type="date" value={searchDate} onChange={(e) => setSearchDate(e.target.value)} />
+                  <input
+                    type="date"
+                    value={searchDate}
+                    min={TODAY_DATE}
+                    onChange={(e) => handleSearchDateChange(e.target.value)}
+                  />
                 </div>
 
                 {/* Date retour - visible seulement pour Aller-retour */}
                 {searchTab === 'retour' && (
                   <div className="form-group">
                     <label>Date retour</label>
-                    <input type="date" value={searchReturnDate} onChange={(e) => setSearchReturnDate(e.target.value)} />
+                    <input
+                      type="date"
+                      value={searchReturnDate}
+                      min={searchDate || TODAY_DATE}
+                      onChange={(e) => handleSearchReturnDateChange(e.target.value)}
+                    />
                   </div>
                 )}
 
@@ -701,9 +928,10 @@ function App() {
                   <label>Passagers / Classe</label>
                   <select value={searchClass} onChange={(e) => setSearchClass(e.target.value)}>
                     <option>1 adulte — Économique</option>
-                    <option>2 adultes — Économique</option>
-                    <option>1 adulte — Business</option>
+                    <option>2 adultes — Business</option>
+                    <option>1 jeune — Sans carte</option>
                     <option>1 adulte — Première</option>
+                    <option>Autre type</option>
                   </select>
                 </div>
 
@@ -722,7 +950,7 @@ function App() {
                       <button className="btn btn-ghost" onClick={() => setSearchDestinations(searchDestinations.filter((_, i) => i !== idx))}>✕</button>
                     </div>
                   ))}
-                  <button className="btn btn-primary" style={{ width: '100%', marginTop: 12 }} onClick={() => setSearchDestinations([...searchDestinations, { dep: 'Antananarivo (TNR)', dest: 'Paris CDG (CDG)', date: '2025-09-15' }])}>+ Ajouter destination</button>
+                  <button className="btn btn-primary" style={{ width: '100%', marginTop: 12 }} onClick={() => setSearchDestinations([...searchDestinations, { dep: 'Antananarivo (TNR)', dest: 'Paris CDG (CDG)', date: TODAY_DATE }])}>+ Ajouter destination</button>
                 </div>
               )}
             </div>
@@ -732,6 +960,32 @@ function App() {
               <div className="stat"><div className="stat-num">2.4M</div><div className="stat-label">Voyageurs satisfaits</div></div>
               <div className="stat"><div className="stat-num">180+</div><div className="stat-label">Destinations</div></div>
               <div className="stat"><div className="stat-num">98%</div><div className="stat-label">Taux de satisfaction</div></div>
+            </div>
+
+            <div className="popular-section">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginTop: 44, marginBottom: 18, flexWrap: 'wrap' }}>
+                <div>
+                  <h2 style={{ fontSize: '1.8rem', marginBottom: 6 }}>Vols populaires</h2>
+                  <p className="sub">Les destinations les plus réservées par nos clients.</p>
+                </div>
+                <button className="btn btn-primary" onClick={() => setPage('results')}>Voir tous les vols</button>
+              </div>
+              <div className="popular-cards">
+                {(popularFlights.length ? popularFlights : POPULAR_ROUTES).map((item) => {
+                  const routeLabel = item.route || item.label;
+                  return (
+                    <div key={routeLabel} className="dest-card" style={{ cursor: 'default', minHeight: 160 }}>
+                      <div style={{ fontSize: '1.4rem', marginBottom: 14 }}>{item.icon || '✈️'}</div>
+                      <div style={{ fontWeight: 700, marginBottom: 8 }}>{routeLabel}</div>
+                      <div style={{ color: 'var(--text-muted)', lineHeight: 1.6 }}>{item.description || item.subtitle || 'Réservez ce trajet en un clic.'}</div>
+                      <div style={{ marginTop: 16, display: 'grid', gap: 8 }}>
+                        {item.priceMga ? <span style={{ fontSize: '0.9rem', color: 'var(--text)' }}>À partir de {formatPrice(item.priceMga, currency)}</span> : null}
+                        <button className="btn btn-ghost" style={{ padding: '10px 16px' }} onClick={() => handlePopularReserve(routeLabel)}>Réserver</button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
@@ -771,33 +1025,55 @@ function App() {
                 <div className="filter-section">
                   <div className="filter-section-title">Escales</div>
                   <div className="checkbox-group">
-                    <label className="checkbox-item"><input type="checkbox" defaultChecked /> Vol direct</label>
-                    <label className="checkbox-item"><input type="checkbox" defaultChecked /> 1 escale</label>
-                    <label className="checkbox-item"><input type="checkbox" /> 2 escales+</label>
+                    <label className="checkbox-item"><input type="checkbox" checked={flightFilters.direct} onChange={(e) => setFlightFilters((prev) => ({ ...prev, direct: e.target.checked }))} /> Vol direct</label>
+                    <label className="checkbox-item"><input type="checkbox" checked={flightFilters.oneStop} onChange={(e) => setFlightFilters((prev) => ({ ...prev, oneStop: e.target.checked }))} /> 1 escale</label>
+                    <label className="checkbox-item"><input type="checkbox" checked={flightFilters.multiStop} onChange={(e) => setFlightFilters((prev) => ({ ...prev, multiStop: e.target.checked }))} /> 2 escales+</label>
                   </div>
                 </div>
                 <div className="filter-section">
                   <div className="filter-section-title">Compagnies</div>
                   <div className="checkbox-group">
-                    <label className="checkbox-item"><input type="checkbox" defaultChecked /> Air Madagascar</label>
-                    <label className="checkbox-item"><input type="checkbox" defaultChecked /> Air France</label>
-                    <label className="checkbox-item"><input type="checkbox" /> Ethiopian Airlines</label>
-                    <label className="checkbox-item"><input type="checkbox" defaultChecked /> Turkish Airlines</label>
-                    <label className="checkbox-item"><input type="checkbox" /> Emirates</label>
+                    {Object.keys(flightFilters.airlines).map((airline) => (
+                    <label className="checkbox-item" key={airline}>
+                      <input
+                        type="checkbox"
+                        checked={flightFilters.airlines[airline]}
+                        onChange={(e) => setFlightFilters((prev) => ({
+                          ...prev,
+                          airlines: {
+                            ...prev.airlines,
+                            [airline]: e.target.checked,
+                          },
+                        }))}
+                      /> {airline}
+                    </label>
+                ))}
                   </div>
                 </div>
                 <div className="filter-section">
                   <div className="filter-section-title">Classe</div>
                   <div className="checkbox-group">
-                    <label className="checkbox-item"><input type="checkbox" defaultChecked /> Économique</label>
-                    <label className="checkbox-item"><input type="checkbox" /> Business</label>
-                    <label className="checkbox-item"><input type="checkbox" /> Première</label>
+                    {Object.keys(flightFilters.classes).map((classType) => (
+                    <label className="checkbox-item" key={classType}>
+                      <input
+                        type="checkbox"
+                        checked={flightFilters.classes[classType]}
+                        onChange={(e) => setFlightFilters((prev) => ({
+                          ...prev,
+                          classes: {
+                            ...prev.classes,
+                            [classType]: e.target.checked,
+                          },
+                        }))}
+                      /> {classType}
+                    </label>
+                ))}
                   </div>
                 </div>
                 <div className="filter-section">
                   <div className="filter-section-title">Heure de départ</div>
-                  <input type="range" className="filter-range" min="0" max="24" value="18" />
-                  <div className="filter-range-labels"><span>00:00</span><span>23:59</span></div>
+                  <input type="range" className="filter-range" min="0" max="24" value={flightFilters.depEndHour} onChange={(e) => setFlightFilters((prev) => ({ ...prev, depEndHour: Number(e.target.value) }))} />
+                  <div className="filter-range-labels"><span>00:00</span><span>{flightFilters.depEndHour}:00</span></div>
                 </div>
               </aside>
               <div>
@@ -806,7 +1082,7 @@ function App() {
                     <button key={label} className={`sort-chip ${selectedSort === label ? 'active' : ''}`} onClick={() => setSelectedSort(label)}>{label}</button>
                   ))}
                 </div>
-                {flights.filter((flight) => flight.priceMga <= priceRange).map((flight) => (
+                {filteredFlights.map((flight) => (
                   <div
                     key={flight.code}
                     className={`flight-card ${flight.premium ? 'premium' : ''}`}
@@ -835,7 +1111,7 @@ function App() {
                     <div className="flight-info">
                       <div className={`flight-class ${flight.className.toLowerCase().includes('business') ? 'business' : ''}`}>{flight.className}</div>
                       <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{flight.aircraft}</div>
-                      <div style={{ fontSize: '0.78rem', marginTop: '4px', color: flight.seats.startsWith('✓') ? 'var(--success)' : 'var(--error)' }}>{flight.seats}</div>
+                      <div style={{ fontSize: '0.78rem', marginTop: '4px', color: String(flight.seats).startsWith('✓') ? 'var(--success)' : 'var(--error)' }}>{flight.seats}</div>
                     </div>
                     <div className="flight-price">
                       <div className="price-amount" data-mga={flight.priceMga}>{formatPrice(flight.priceMga, currency)}</div>
@@ -1108,7 +1384,7 @@ function App() {
           </div>
         </section>
 
-        <section className={`page ${page === 'confirm' ? 'active' : ''}`} id="page-confirm">
+        <section className={`page ${page === 'ticket' ? 'active' : ''}`} id="page-ticket">
           <div className="page-inner" style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '4rem', marginBottom: 16, animation: 'fadeDown 0.5s ease' }}>✅</div>
             <h1 className="page-title" style={{ textAlign: 'center', color: 'var(--success)', marginBottom: 8 }}>Réservation confirmée !</h1>
@@ -1206,6 +1482,52 @@ function App() {
             </div>
           </section>
 
+          <section className={`page ${page === 'help' ? 'active' : ''}`} id="page-help">
+            <div className="page-inner">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16, marginBottom: 32 }}>
+                <div>
+                  <h1 className="page-title">Aide & Support</h1>
+                  <p className="page-subtitle">Besoin d'aide ? Nous sommes là pour vous accompagner.</p>
+                </div>
+                <button className="btn btn-primary" onClick={() => showToast('📨 Notre équipe de support vous contactera bientôt.')}>Contacter le support</button>
+              </div>
+              <div className="dashboard-grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
+                <div className="dash-card"><span className="dash-card-icon">📩</span><span className="dash-card-value">Support 24/7</span><div className="dash-card-label">Réponse rapide sous 15 min</div></div>
+                <div className="dash-card"><span className="dash-card-icon">💳</span><span className="dash-card-value">Paiement</span><div className="dash-card-label">Sécurisé et simple</div></div>
+                <div className="dash-card gold-card"><span className="dash-card-icon">✈</span><span className="dash-card-value">Vols</span><div className="dash-card-label">Modification gratuite</div></div>
+                <div className="dash-card"><span className="dash-card-icon">🛂</span><span className="dash-card-value">Documents</span><div className="dash-card-label">Conseils de voyage</div></div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginTop: 32 }}>
+                <div style={{ padding: 24, backgroundColor: 'var(--card)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+                  <h3>Questions fréquentes</h3>
+                  <div style={{ marginTop: 18, display: 'grid', gap: 16 }}>
+                    <div><strong>Comment modifier ma réservation ?</strong><p style={{ marginTop: 6, color: 'var(--text-muted)' }}>Rendez-vous sur Mon Espace, sélectionnez votre réservation puis cliquez sur Gérer.</p></div>
+                    <div><strong>Quel est le délai pour obtenir un remboursement ?</strong><p style={{ marginTop: 6, color: 'var(--text-muted)' }}>Les remboursements sont possibles jusqu'à 48h avant le départ.</p></div>
+                    <div><strong>Comment changer la devise de paiement ?</strong><p style={{ marginTop: 6, color: 'var(--text-muted)' }}>Utilisez le sélecteur de devise dans le menu principal.</p></div>
+                  </div>
+                </div>
+                <div style={{ padding: 24, backgroundColor: 'var(--card)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+                  <h3>Contact rapide</h3>
+                  <div style={{ marginTop: 18, display: 'grid', gap: 14 }}>
+                    <div><strong>Email</strong><p style={{ marginTop: 6, color: 'var(--text-muted)' }}>support@manidina.mg</p></div>
+                    <div><strong>Téléphone</strong><p style={{ marginTop: 6, color: 'var(--text-muted)' }}>+261 34 12 34 56</p></div>
+                    <div><strong>Chat live</strong><p style={{ marginTop: 6, color: 'var(--text-muted)' }}>Disponible 24/7</p></div>
+                    <div><strong>Aéroport</strong><p style={{ marginTop: 6, color: 'var(--text-muted)' }}>Ivato, Antananarivo</p></div>
+                  </div>
+                </div>
+              </div>
+              <div style={{ marginTop: 28, padding: 24, backgroundColor: 'var(--card)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+                <h3>Envoyer une demande d'aide</h3>
+                <div style={{ display: 'grid', gap: 16, marginTop: 18 }}>
+                  <div className="form-group"><label>Email</label><input type="email" placeholder="vous@email.com" value={helpForm.email} onChange={(e) => setHelpForm((prev) => ({ ...prev, email: e.target.value }))} /></div>
+                  <div className="form-group"><label>Objet</label><input type="text" placeholder="Sujet de la demande" value={helpForm.subject} onChange={(e) => setHelpForm((prev) => ({ ...prev, subject: e.target.value }))} /></div>
+                  <div className="form-group"><label>Message</label><textarea rows="4" placeholder="Votre message" value={helpForm.message} onChange={(e) => setHelpForm((prev) => ({ ...prev, message: e.target.value }))} style={{ resize: 'vertical' }} /></div>
+                  <button className="btn btn-primary" onClick={handleHelpSubmit}>📩 Envoyer la demande</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
         <section className={`page ${page === 'dashboard' ? 'active' : ''}`} id="page-dashboard">
             <div className="page-inner">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 }}>
@@ -1248,7 +1570,7 @@ function App() {
                       <td>12A</td>
                       <td>€ 830</td>
                       <td><span className="badge badge-success">Confirmé</span></td>
-                      <td><button className="btn btn-ghost" style={{ padding: '5px 12px', fontSize: '0.78rem' }} onClick={() => setPage('confirm')}>Voir billet</button></td>
+                      <td><button className="btn btn-ghost" style={{ padding: '5px 12px', fontSize: '0.78rem' }} onClick={() => setPage('ticket')}>Voir billet</button></td>
                     </tr>
                     <tr>
                       <td style={{ color: 'var(--primary)', fontWeight: 600 }}>MNI-JR291</td>
@@ -1444,7 +1766,14 @@ function App() {
                 <a href="#" style={{ fontSize: '0.82rem', color: 'var(--primary)', textAlign: 'right', display: 'block', marginTop: '-8px' }}>Mot de passe oublié ?</a>
                 <button className="btn btn-primary" style={{ padding: 13 }} onClick={() => handleAuthSubmit('login')}>Connexion →</button>
                 <div className="divider">ou</div>
-                <button className="social-btn" onClick={() => showToast('🔗 Connexion Google...')}>🔍 Continuer avec Google</button>
+                <div className="social-sync">
+                  <div className="social-sync-label">Synchronisation de compte</div>
+                  <div className="social-buttons">
+                    <button type="button" className="social-btn" onClick={() => showToast('🔗 Connexion Google...')}>🔍 Google</button>
+                    <button type="button" className="social-btn" onClick={() => showToast('🔗 Connexion Facebook...')}>📘 Facebook</button>
+                    <button type="button" className="social-btn" onClick={() => showToast('🔗 Connexion Apple...')}>🍎 Apple</button>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="auth-form" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
