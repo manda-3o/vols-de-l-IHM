@@ -843,7 +843,10 @@ function App() {
                     placeholder="🛫 Ville ou code IATA"
                     value={searchDep}
                     onFocus={() => setShowACDep(true)}
-                    onChange={(e) => setSearchDep(e.target.value)}
+                    onChange={(e) => {
+                      setSearchDep(e.target.value);
+                      setShowACDep(true);
+                    }}
                     autoComplete="off"
                   />
                   <div className={`ac-dropdown ${showACDep ? 'open' : ''}`}>
@@ -875,7 +878,10 @@ function App() {
                     placeholder="🛬 Ville ou code IATA"
                     value={searchDest}
                     onFocus={() => setShowACDest(true)}
-                    onChange={(e) => setSearchDest(e.target.value)}
+                    onChange={(e) => {
+                      setSearchDest(e.target.value);
+                      setShowACDest(true);
+                    }}
                     autoComplete="off"
                   />
                   <div className={`ac-dropdown ${showACDest ? 'open' : ''}`}>
