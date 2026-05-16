@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { AppService } from './app.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
+import { CreateSupportRequestDto } from './dto/create-support-request.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 
 @Controller()
@@ -32,6 +33,11 @@ export class AppController {
     return this.appService.getFlights();
   }
 
+  @Get('flights/popular')
+  getPopularFlights() {
+    return this.appService.getPopularFlights();
+  }
+
   @Get('bookings')
   getBookings() {
     return this.appService.getBookings();
@@ -40,5 +46,10 @@ export class AppController {
   @Post('bookings')
   createBooking(@Body() createBookingDto: CreateBookingDto) {
     return this.appService.createBooking(createBookingDto);
+  }
+
+  @Post('support')
+  submitSupportRequest(@Body() createSupportRequestDto: CreateSupportRequestDto) {
+    return this.appService.submitSupportRequest(createSupportRequestDto);
   }
 }

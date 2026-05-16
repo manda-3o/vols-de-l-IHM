@@ -53,6 +53,21 @@ export class AppService {
     });
   }
 
+  getPopularFlights() {
+    return this.prisma.flight.findMany({
+      take: 4,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  submitSupportRequest(data: { email: string; subject: string; message: string }) {
+    return {
+      status: 'received',
+      receivedAt: new Date().toISOString(),
+      request: data,
+    };
+  }
+
   async seedDemoData() {
     const flightsCount = await this.prisma.flight.count();
     if (flightsCount === 0) {
