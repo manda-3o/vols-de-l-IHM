@@ -274,12 +274,14 @@ function App() {
   const [authMode, setAuthMode] = useState('login');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [searchTab, setSearchTab] = useState('aller');
-  const [searchDep, setSearchDep] = useState('Antananarivo (TNR)');
-  const [searchDest, setSearchDest] = useState('Paris CDG (CDG)');
+  const [searchDep, setSearchDep] = useState('');
+  const [searchDest, setSearchDest] = useState('');
   const [searchDate, setSearchDate] = useState(TODAY_DATE);
   const [searchReturnDate, setSearchReturnDate] = useState(TOMORROW_DATE);
   const [searchDestinations, setSearchDestinations] = useState([{ dep: 'Antananarivo (TNR)', dest: 'Paris CDG (CDG)', date: TODAY_DATE }]);
-  const [searchClass, setSearchClass] = useState('1 adulte — Économique');
+  const [searchClass, setSearchClass] = useState('');
+  const [searchError, setSearchError] = useState('');
+  const [searchSubmitting, setSearchSubmitting] = useState(false);
   const [showACDep, setShowACDep] = useState(false);
   const [showACDest, setShowACDest] = useState(false);
   const [priceRange, setPriceRange] = useState(6000000);
@@ -433,6 +435,23 @@ function App() {
     ).slice(0, 8);
   }, [searchDest]);
 
+  const normalizeInput = (value) => value.trim().replace(/\s+/g, ' ');
+  const sanitizeInput = (value) => normalizeInput(value.replace(/[^A-Za-zÀ-ÖØ-öø-ÿ0-9 .'()\-]/g, ''));
+  const findAirport = (input) => {
+    const normalized = normalizeInput(input).toLowerCase();
+    return AIRPORTS.find((airport) => {
+      const standard = `${airport.city} (${airport.code})`.toLowerCase();
+      return (
+        standard === normalized ||
+        airport.code.toLowerCase() === normalized ||
+        airport.city.toLowerCase() === normalized ||
+        airport.airport.toLowerCase() === normalized ||
+        `${airport.city} ${airport.code}`.toLowerCase() === normalized ||
+        `${airport.airport} ${airport.code}`.toLowerCase() === normalized
+      );
+    });
+  };
+
   const clampToToday = (value) => (value < TODAY_DATE ? TODAY_DATE : value);
   const handleSearchDateChange = (value) => {
     const nextValue = clampToToday(value);
@@ -511,18 +530,52 @@ function App() {
   };
 
   const handleSearch = () => {
-    if (searchDate < TODAY_DATE) {
-      setSearchDate(TODAY_DATE);
-      showToast('⚠️ La date de départ ne peut pas être antérieure à aujourd\'hui.');
+    if (searchSubmitting) return;
+    const dep = sanitizeInput(searchDep);
+    const dest = sanitizeInput(searchDest);
+    const validClass = normalizeInput(searchClass || '');
+    setSearchDep(dep);
+    setSearchDest(dest);
+    setSearchError('');
+
+    if (!dep || !dest || !searchDate || !validClass) {
+      setSearchError('Veuillez remplir tous les champs obligatoires.');
       return;
     }
-    if (searchTab === 'retour' && searchReturnDate < searchDate) {
-      setSearchReturnDate(searchDate);
-      showToast('⚠️ La date de retour doit être égale ou postérieure au départ.');
+
+    const departureAirport = findAirport(dep);
+    const destinationAirport = findAirport(dest);
+
+    if (!departureAirport || !destinationAirport) {
+      setSearchError('Ville non reconnue.');
       return;
     }
+
+    if (departureAirport.code === destinationAirport.code) {
+      setSearchError('Veuillez choisir une ville de destination différente.');
+      return;
+    }
+
+    if (new Date(searchDate) < new Date(TODAY_DATE)) {
+      setSearchError('Le départ ne peut pas être dans le passé.');
+      return;
+    }
+
+    if (searchTab === 'retour') {
+      if (!searchReturnDate) {
+        setSearchError('Date invalide.');
+        return;
+      }
+      if (new Date(searchReturnDate) < new Date(searchDate)) {
+        setSearchError('La date retour doit être après la date départ.');
+        return;
+      }
+    }
+
+    setSearchSubmitting(true);
+    setTimeout(() => setSearchSubmitting(false), 600);
     setPage('results');
-    showToast('🔍 Vols trouvés pour ' + searchDep + ' → ' + searchDest);
+    showToast('🔍 Vols trouvés pour ' + departureAirport.city + ' → ' + destinationAirport.city);
   };
 
   const handlePopularReserve = (routeLabel) => {
@@ -840,12 +893,13 @@ function App() {
                   <label>Départ</label>
                   <input
                     type="text"
-                    placeholder="🛫 Ville ou code IATA"
+                    placeholder="Antananarivo (TNR)"
                     value={searchDep}
                     onFocus={() => setShowACDep(true)}
                     onChange={(e) => {
-                      setSearchDep(e.target.value);
+                      setSearchDep(sanitizeInput(e.target.value));
                       setShowACDep(true);
+                      setSearchError('');
                     }}
                     autoComplete="off"
                   />
@@ -875,12 +929,13 @@ function App() {
                   <label>Destination</label>
                   <input
                     type="text"
-                    placeholder="🛬 Ville ou code IATA"
+                    placeholder="Toamasina (TMM)"
                     value={searchDest}
                     onFocus={() => setShowACDest(true)}
                     onChange={(e) => {
-                      setSearchDest(e.target.value);
+                      setSearchDest(sanitizeInput(e.target.value));
                       setShowACDest(true);
+                      setSearchError('');
                     }}
                     autoComplete="off"
                   />
@@ -932,17 +987,27 @@ function App() {
                 {/* Passagers / Classe */}
                 <div className="form-group">
                   <label>Passagers / Classe</label>
-                  <select value={searchClass} onChange={(e) => setSearchClass(e.target.value)}>
-                    <option>1 adulte — Économique</option>
-                    <option>2 adultes — Business</option>
-                    <option>1 jeune — Sans carte</option>
-                    <option>1 adulte — Première</option>
-                    <option>Autre type</option>
+                  <select value={searchClass} onChange={(e) => {
+                    setSearchClass(e.target.value);
+                    setSearchError('');
+                  }}>
+                    <option value="">Sélectionner une classe</option>
+                    <option value="1 adulte — Économique">1 adulte — Économique</option>
+                    <option value="2 adultes — Business">2 adultes — Business</option>
+                    <option value="1 jeune — Sans carte">1 jeune — Sans carte</option>
+                    <option value="1 adulte — Première">1 adulte — Première</option>
+                    <option value="Autre type">Autre type</option>
                   </select>
                 </div>
 
-                <button className="btn btn-primary search-btn-lg" onClick={handleSearch}>Rechercher</button>
+                <button className="btn btn-primary search-btn-lg" onClick={handleSearch} disabled={searchSubmitting}>Rechercher</button>
               </div>
+              {searchError && (
+                <div className="error-message" role="alert" aria-live="polite">
+                  <span className="error-icon">⚠</span>
+                  <span>{searchError}</span>
+                </div>
+              )}
 
               {/* Section Multi-destinations */}
               {searchTab === 'multi' && (
@@ -969,7 +1034,7 @@ function App() {
             </div>
 
             <div className="popular-section">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginTop: 44, marginBottom: 18, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, marginTop: 24, marginBottom: 14, flexWrap: 'wrap' }}>
                 <div>
                   <h2 style={{ fontSize: '1.8rem', marginBottom: 6 }}>Vols populaires</h2>
                   <p className="sub">Les destinations les plus réservées par nos clients.</p>
@@ -1094,38 +1159,48 @@ function App() {
                     className={`flight-card ${flight.premium ? 'premium' : ''}`}
                     onClick={() => handleFlightSelect(flight)}
                   >
-                    <div className="airline-logo" style={flight.premium ? { color: 'var(--gold)' } : undefined}>
-                      {flight.displayLogo.split('\n').map((line, index) => (
-                        <span key={index} style={{ display: 'block', lineHeight: 1 }}>{line}</span>
-                      ))}
+                    <div className="flight-airline">
+                      <div className="airline-logo" style={flight.premium ? { color: 'var(--gold)' } : undefined}>
+                        {flight.displayLogo.split('\n').map((line, index) => (
+                          <span key={index}>{line}</span>
+                        ))}
+                      </div>
+                      <span className="airline-name">{flight.airline || 'Air Madagascar'}</span>
                     </div>
-                    <div className="flight-route">
-                      <div>
+
+                    <div className="flight-route-col">
+                      <div className="route-segment">
                         <div className="route-time">{flight.depTime}</div>
                         <div className="route-code">{flight.dep}</div>
                       </div>
-                      <div className="route-line">
-                        <div className="route-duration">{flight.duration}</div>
+                      <div className="route-timeline">
                         <div className="route-bar"></div>
-                        <div className={`route-stops ${flight.stops.includes('escale') ? 'has-stop' : ''}`}>{flight.stops}</div>
+                        <div className="route-info">
+                          <div className="route-duration">{flight.duration}</div>
+                          <div className={`route-stops ${flight.stops.includes('escale') ? 'has-stop' : ''}`}>{flight.stops}</div>
+                        </div>
                       </div>
-                      <div>
+                      <div className="route-segment">
                         <div className="route-time">{flight.arrTime}</div>
                         <div className="route-code">{flight.arr}</div>
                       </div>
                     </div>
-                    <div className="flight-info">
-                      <div className={`flight-class ${flight.className.toLowerCase().includes('business') ? 'business' : ''}`}>{flight.className}</div>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{flight.aircraft}</div>
-                      <div style={{ fontSize: '0.78rem', marginTop: '4px', color: String(flight.seats).startsWith('✓') ? 'var(--success)' : 'var(--error)' }}>{flight.seats}</div>
+
+                    <div className="flight-details">
+                      <span className={`flight-class ${flight.className.toLowerCase().includes('business') ? 'business' : ''}`}>{flight.className}</span>
+                      <span className="aircraft-type">{flight.aircraft}</span>
+                      <span className={`seats-info ${String(flight.seats).startsWith('✓') ? 'available' : 'limited'}`}>{flight.seats}</span>
                     </div>
-                    <div className="flight-price">
-                      <div className="price-amount" data-mga={flight.priceMga}>{formatPrice(flight.priceMga, currency)}</div>
-                      <div className="price-per">par passager</div>
-                      <button className={`btn ${flight.premium ? 'btn-gold' : 'btn-primary'} select-btn`} type="button">Sélectionner →</button>
+
+                    <div className="flight-price-box">
+                      <div className="price-amount">{formatPrice(flight.priceMga, currency)}</div>
+                      <div className="price-label">par passager</div>
+                      <button className={`btn ${flight.premium ? 'btn-gold' : 'btn-primary'} select-btn`} type="button">Sélectionner</button>
                     </div>
                   </div>
                 ))}
+
+
                 <div style={{ marginTop: 28, marginBottom: 12, fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: '1rem', color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                   ✈ Vols intérieurs Madagascar
                 </div>
@@ -1135,35 +1210,43 @@ function App() {
                     className="flight-card"
                     onClick={() => handleFlightSelect(flight)}
                   >
-                    <div className="airline-logo" style={{ fontSize: '0.65rem' }}>
-                      {flight.displayLogo.split('\n').map((line, index) => (
-                        <span key={index} style={{ display: 'block', lineHeight: 1 }}>{line}</span>
-                      ))}
+                    <div className="flight-airline">
+                      <div className="airline-logo" style={{ fontSize: '0.65rem' }}>
+                        {flight.displayLogo.split('\n').map((line, index) => (
+                          <span key={index}>{line}</span>
+                        ))}
+                      </div>
+                      <span className="airline-name">{flight.airline || 'Air Madagascar'}</span>
                     </div>
-                    <div className="flight-route">
-                      <div>
+
+                    <div className="flight-route-col">
+                      <div className="route-segment">
                         <div className="route-time">{flight.depTime}</div>
                         <div className="route-code">{flight.dep}</div>
                       </div>
-                      <div className="route-line">
-                        <div className="route-duration">{flight.duration}</div>
+                      <div className="route-timeline">
                         <div className="route-bar"></div>
-                        <div className="route-stops">{flight.stops}</div>
+                        <div className="route-info">
+                          <div className="route-duration">{flight.duration}</div>
+                          <div className="route-stops">{flight.stops}</div>
+                        </div>
                       </div>
-                      <div>
+                      <div className="route-segment">
                         <div className="route-time">{flight.arrTime}</div>
                         <div className="route-code">{flight.arr}</div>
                       </div>
                     </div>
-                    <div className="flight-info">
-                      <div className="flight-class">{flight.className}</div>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{flight.aircraft}</div>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--success)', marginTop: '4px' }}>{flight.seats}</div>
+
+                    <div className="flight-details">
+                      <span className="flight-class">{flight.className}</span>
+                      <span className="aircraft-type">{flight.aircraft}</span>
+                      <span className="seats-info available">{flight.seats}</span>
                     </div>
-                    <div className="flight-price">
-                      <div className="price-amount" data-mga={flight.priceMga}>{formatPrice(flight.priceMga, currency)}</div>
-                      <div className="price-per">par passager</div>
-                      <button className="btn btn-primary select-btn" type="button">Sélectionner →</button>
+
+                    <div className="flight-price-box">
+                      <div className="price-amount">{formatPrice(flight.priceMga, currency)}</div>
+                      <div className="price-label">par passager</div>
+                      <button className="btn btn-primary select-btn" type="button">Sélectionner</button>
                     </div>
                   </div>
                 ))}
